@@ -611,6 +611,7 @@ function App() {
       {callChoiceTarget && (
         <CallChoiceModal
           person={callChoiceTarget}
+          profile={profile}
           onClose={() => setCallChoiceTarget(null)}
           onSelectSaantvana={() => startSaantvanaCall(callChoiceTarget)}
           onSelectGoogleMeet={() => startGoogleMeet(callChoiceTarget)}
@@ -684,6 +685,15 @@ function App() {
             setCall(null);
             say('Call ended. Take a moment before your next thing.');
           }}
+          onSwitchToGoogleMeet={() => {
+            const target = call;
+            setCall(null);
+            startGoogleMeet(target);
+          }}
+          onOpenSettings={() => {
+            setCall(null);
+            setShowSettings(true);
+          }}
         />
       )}
 
@@ -746,7 +756,13 @@ function NavItem({ icon, label, active, onClick, badge }) {
 }
 
 // Call Choice Modal: Allows seamlessly choosing between Saantvana Presence and Google Meet
-function CallChoiceModal({ person, onClose, onSelectSaantvana, onSelectGoogleMeet }) {
+function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelectGoogleMeet }) {
+  const isStaticHost = typeof window !== 'undefined' && (
+    window.location.hostname.endsWith('github.io') ||
+    window.location.hostname.endsWith('pages.dev')
+  );
+  const hasCustomSignal = Boolean(profile?.signalUrl?.trim() || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL));
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="form-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="call-choice-title">
@@ -765,14 +781,48 @@ function CallChoiceModal({ person, onClose, onSelectSaantvana, onSelectGoogleMee
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Google Meet Option */}
+          <div
+            onClick={onSelectGoogleMeet}
+            style={{
+              padding: '18px 20px',
+              borderRadius: 16,
+              border: isStaticHost && !hasCustomSignal ? '2px solid #34a853' : '2px solid #d3e2d6',
+              background: '#f8fdf9',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              transition: 'all 0.18s ease'
+            }}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fff', border: '1px solid #c7e0cd', display: 'grid', placeItems: 'center', flex: 'none' }}>
+              <GoogleMeetLogo size={26}/>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 15, color: '#137333' }}>Google Meet</b>
+                {isStaticHost && !hasCustomSignal && (
+                  <span style={{ fontSize: 11, background: '#e6f4ea', color: '#137333', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                    Instant · No server needed
+                  </span>
+                )}
+              </div>
+              <span style={{ display: 'block', fontSize: 13, color: '#274e2d', marginTop: 4 }}>
+                {person.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
+              </span>
+            </div>
+            <ExternalLink size={18} style={{ color: '#137333' }}/>
+          </div>
+
           {/* Saantvana Option */}
           <div
             onClick={onSelectSaantvana}
             style={{
               padding: '18px 20px',
               borderRadius: 16,
-              border: '2px solid var(--purple)',
-              background: 'var(--purple-light)',
+              border: !isStaticHost || hasCustomSignal ? '2px solid var(--purple)' : '1px solid var(--line)',
+              background: !isStaticHost || hasCustomSignal ? 'var(--purple-light)' : 'var(--surface)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -786,37 +836,10 @@ function CallChoiceModal({ person, onClose, onSelectSaantvana, onSelectGoogleMee
             <div style={{ flex: 1 }}>
               <b style={{ fontSize: 15, color: 'var(--ink)' }}>Saantvana Presence Call</b>
               <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-secondary)', marginTop: 2 }}>
-                Private 1:1 WebRTC · Optional on-device 3D Depth view · No cloud recording
+                Private 1:1 WebRTC · Optional depth view · {isStaticHost && !hasCustomSignal ? 'Requires signaling backend' : 'On-device presence'}
               </span>
             </div>
             <ArrowRight size={18} style={{ color: 'var(--purple)' }}/>
-          </div>
-
-          {/* Google Meet Option */}
-          <div
-            onClick={onSelectGoogleMeet}
-            style={{
-              padding: '18px 20px',
-              borderRadius: 16,
-              border: '2px solid #d3e2d6',
-              background: '#f8fdf9',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              transition: 'all 0.18s ease'
-            }}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fff', border: '1px solid #c7e0cd', display: 'grid', placeItems: 'center', flex: 'none' }}>
-              <GoogleMeetLogo size={26}/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <b style={{ fontSize: 15, color: '#137333' }}>Google Meet</b>
-              <span style={{ display: 'block', fontSize: 13, color: '#274e2d', marginTop: 2 }}>
-                {person.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
-              </span>
-            </div>
-            <ExternalLink size={18} style={{ color: '#137333' }}/>
           </div>
         </div>
 
@@ -1440,7 +1463,7 @@ function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpe
 }
 
 // 100% Real WebRTC Call Modal with Screen Share, In-Call Chat, Floating Reactions, and Depth View
-function CallModal({ person, profile, onClose }) {
+function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSettings }) {
   const [callState, sendCall] = useMachine(callMachine, () => ({
     ...initialCallContext,
     person,
@@ -1517,7 +1540,9 @@ function CallModal({ person, profile, onClose }) {
 
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const defaultSignalUrl = `${protocol}//${location.host}/signal`;
-        const signalUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL) || defaultSignalUrl;
+        const signalUrl = (profile?.signalUrl && profile.signalUrl.trim()) ||
+                          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL) ||
+                          defaultSignalUrl;
         const socket = new WebSocket(signalUrl);
         socketRef.current = socket;
 
@@ -1982,10 +2007,44 @@ function CallModal({ person, profile, onClose }) {
               </>
             ) : (
               <div className="waiting-state">
-                <div className="stage-orb"/>
-                <div className={`stage-avatar avatar-${person.color || 'peach'}`}>{person.initials}</div>
-                <b>{person.role === 'host' ? 'Your person will appear here' : 'Waiting for the host to connect'}</b>
-                <span>{callCtx.status}</span>
+                {callCtx.error ? (
+                  <div className="signaling-fallback-box">
+                    <span className="fallback-badge">STATIC HOSTING NOTICE</span>
+                    <b style={{ fontSize: '16px', display: 'block', marginTop: 4 }}>Signaling Service Unreachable</b>
+                    <p style={{ maxWidth: 360, fontSize: 13, color: '#e0def4', lineHeight: 1.5, margin: '8px auto 16px' }}>
+                      GitHub Pages & Cloudflare Pages serve static files and cannot run background WebSocket servers without a backend URL.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+                      {onSwitchToGoogleMeet && (
+                        <button
+                          type="button"
+                          className="primary-button"
+                          style={{ background: '#137333', borderColor: '#137333', gap: 8, padding: '10px 18px', width: '100%', justifyContent: 'center' }}
+                          onClick={onSwitchToGoogleMeet}
+                        >
+                          <GoogleMeetLogo size={18}/> Connect via Google Meet (Instant)
+                        </button>
+                      )}
+                      {onOpenSettings && (
+                        <button
+                          type="button"
+                          className="outline-button"
+                          style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', fontSize: 12, padding: '8px 14px', width: '100%', justifyContent: 'center' }}
+                          onClick={onOpenSettings}
+                        >
+                          <Settings size={14}/> Configure Signaling Server URL
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="stage-orb"/>
+                    <div className={`stage-avatar avatar-${person.color || 'peach'}`}>{person.initials}</div>
+                    <b>{person.role === 'host' ? 'Your person will appear here' : 'Waiting for the host to connect'}</b>
+                    <span>{callCtx.status}</span>
+                  </>
+                )}
               </div>
             )}
             <label>{callCtx.remoteStream ? callCtx.peerName : 'Waiting'}</label>
@@ -2402,6 +2461,7 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
   const [theme, setTheme] = useState(profile.theme || 'light');
   const [defaultMic, setDefaultMic] = useState(profile.defaultMic ?? true);
   const [defaultCam, setDefaultCam] = useState(profile.defaultCam ?? true);
+  const [signalUrl, setSignalUrl] = useState(profile.signalUrl || '');
 
   const colors = [
     { id: 'lilac', hex: '#e9e3f6', label: 'Lilac' },
@@ -2419,7 +2479,8 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
       color,
       theme,
       defaultMic,
-      defaultCam
+      defaultCam,
+      signalUrl: signalUrl.trim()
     });
   };
 
@@ -2514,6 +2575,19 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
                 Start calls with camera on
               </label>
             </div>
+          </div>
+
+          <div className="settings-item">
+            <label htmlFor="prof-signal">WebRTC Signaling Server URL (Optional)</label>
+            <input
+              id="prof-signal"
+              placeholder="wss://your-signaling-app.onrender.com/signal"
+              value={signalUrl}
+              onChange={(e) => setSignalUrl(e.target.value)}
+            />
+            <small>
+              Static hosts (GitHub Pages) require a WebSocket backend for native calls. Leave empty to use Google Meet or local default.
+            </small>
           </div>
 
           <div className="settings-item">

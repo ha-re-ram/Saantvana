@@ -1266,6 +1266,31 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
   margin-top: 6px;
 }
 
+.signaling-fallback-box {
+  background: rgba(20, 16, 32, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  padding: 24px 22px;
+  backdrop-filter: blur(16px);
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  animation: fadeIn 0.25s ease;
+}
+
+.fallback-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
 .depth-canvas {
   position: absolute;
   inset: 0;
