@@ -1,0 +1,11 @@
+{
+  "name": "Saantvana — Feel closer",
+  "short_name": "Saantvana",
+  "description": "A calmer space for meaningful connection.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f4fb",
+  "theme_color": "#f6f4fb",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
