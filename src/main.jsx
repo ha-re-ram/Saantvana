@@ -67,6 +67,17 @@ import {
   CALL_EVENTS,
   initialCallContext
 } from './machines/callMachine.js';
+import {
+  groundingMachine,
+  GROUNDING_STATES,
+  GROUNDING_EVENTS,
+  getGroundingView
+} from './machines/groundingMachine.js';
+import {
+  modalMachine,
+  MODAL_STATES,
+  MODAL_EVENTS
+} from './machines/modalMachine.js';
 
 // Official Google Meet Logo
 function GoogleMeetLogo({ size = 18 }) {
@@ -122,19 +133,29 @@ function App() {
   const [mobileNav, setMobileNav] = useState(false);
   const [inviteRoom, setInviteRoom] = useState('');
 
-  // Modals & Popovers
-  const [showSettings, setShowSettings] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [showCrisis, setShowCrisis] = useState(false);
-  const [showConnectionForm, setShowConnectionForm] = useState(false);
-  const [editingContact, setEditingContact] = useState(null);
+  // Modal Orchestration State Machine (UX/DX/AX: Single focused overlay, zero collisions)
+  const [modalState, sendModal] = useMachine(modalMachine);
+  const showSettings = modalState.matches(MODAL_STATES.SETTINGS);
+  const showGuide = modalState.matches(MODAL_STATES.GUIDE);
+  const showCrisis = modalState.matches(MODAL_STATES.CRISIS);
+  const showConnectionForm = modalState.matches(MODAL_STATES.ADD_CONNECTION);
+  const editingContact = modalState.matches(MODAL_STATES.EDIT_CONNECTION) ? modalState.context.targetPerson : null;
+  const callChoiceTarget = modalState.matches(MODAL_STATES.CALL_CHOICE) ? modalState.context.targetPerson : null;
+
+  const closeModal = () => sendModal({ type: MODAL_EVENTS.CLOSE });
+  const openSettings = () => sendModal({ type: MODAL_EVENTS.OPEN_SETTINGS });
+  const openGuide = () => sendModal({ type: MODAL_EVENTS.OPEN_GUIDE });
+  const openCrisis = () => sendModal({ type: MODAL_EVENTS.OPEN_CRISIS });
+  const openAddConnection = () => sendModal({ type: MODAL_EVENTS.OPEN_ADD_CONNECTION });
+  const openEditConnection = (contact) => sendModal({ type: MODAL_EVENTS.OPEN_EDIT_CONNECTION, contact });
+  const openCallChoice = (person) => sendModal({ type: MODAL_EVENTS.OPEN_CALL_CHOICE, person });
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [activePromptText, setActivePromptText] = useState('');
 
   // Call sessions
-  const [callChoiceTarget, setCallChoiceTarget] = useState(null); // Contact selected for call
   const [call, setCall] = useState(null); // Active Saantvana WebRTC call
   const [activeMeetSession, setActiveMeetSession] = useState(null); // Active Google Meet companion mode
 
@@ -228,13 +249,13 @@ function App() {
         .join('')
         .toUpperCase();
     setInviteRoom('');
-    setCallChoiceTarget(null);
+    closeModal();
     setCall({ ...person, displayName: displayName || profile.name, room: roomCode, role: room ? 'guest' : 'host' });
   };
 
   // Launch Google Meet
   const startGoogleMeet = async (person) => {
-    setCallChoiceTarget(null);
+    closeModal();
     let meetUrl = 'https://meet.google.com/new';
     if (person && person.meetLink) {
       const clean = person.meetLink.trim();
@@ -266,14 +287,14 @@ function App() {
   const addConnection = (contact) => {
     const next = [contact, ...connections];
     saveConnections(next);
-    setShowConnectionForm(false);
+    closeModal();
     say(`${contact.name} added to your connections.`);
   };
 
   const updateConnection = (updated) => {
     const next = connections.map((c) => (c.id === updated.id ? updated : c));
     saveConnections(next);
-    setEditingContact(null);
+    closeModal();
     say(`${updated.name} updated.`);
   };
 
@@ -360,16 +381,16 @@ function App() {
             <b>A gentle reminder</b>
             <p>Small moments of connection count, too.</p>
           </div>
-          <NavItem icon={<CircleHelp size={19}/>} label="How Saantvana works" onClick={() => setShowGuide(true)}/>
-          <NavItem icon={<Settings size={19}/>} label="Settings & Preferences" onClick={() => setShowSettings(true)}/>
-          <NavItem icon={<LifeBuoy size={19}/>} label="Helplines & Support" onClick={() => setShowCrisis(true)}/>
+          <NavItem icon={<CircleHelp size={19}/>} label="How Saantvana works" onClick={openGuide}/>
+          <NavItem icon={<Settings size={19}/>} label="Settings & Preferences" onClick={openSettings}/>
+          <NavItem icon={<LifeBuoy size={19}/>} label="Helplines & Support" onClick={openCrisis}/>
 
           {/* User Profile */}
           <div
             className="profile"
             role="button"
             tabIndex={0}
-            onClick={() => setShowSettings(true)}
+            onClick={openSettings}
             title="Click to edit profile"
           >
             <div className={`avatar avatar-${profile.color || 'lilac'}`}>
@@ -458,7 +479,7 @@ function App() {
 
             <div
               className={`avatar avatar-${profile.color || 'lilac'} small-avatar`}
-              onClick={() => setShowSettings(true)}
+              onClick={openSettings}
               style={{ cursor: 'pointer' }}
               title="Profile settings"
             >
@@ -544,14 +565,14 @@ function App() {
           {page === 'Home' && (
             <HomePage
               profile={profile}
-              onInitiateCall={(person) => setCallChoiceTarget(person || connections[0])}
+              onInitiateCall={(person) => openCallChoice(person || connections[0])}
               onStartGoogleMeet={() => startGoogleMeet()}
               go={go}
               say={say}
               people={connections}
               onRemove={removeConnection}
-              onAdd={() => setShowConnectionForm(true)}
-              onOpenGuide={() => setShowGuide(true)}
+              onAdd={openAddConnection}
+              onOpenGuide={openGuide}
               onPromptSelect={(prompt) => {
                 setActivePromptText(prompt);
                 go('Wellbeing');
@@ -566,11 +587,11 @@ function App() {
               group={selectedGroup}
               setGroup={setSelectedGroup}
               people={connections}
-              onInitiateCall={(person) => setCallChoiceTarget(person)}
+              onInitiateCall={(person) => openCallChoice(person)}
               onStartGoogleMeet={(person) => startGoogleMeet(person)}
               say={say}
-              onAdd={() => setShowConnectionForm(true)}
-              onEdit={(c) => setEditingContact(c)}
+              onAdd={openAddConnection}
+              onEdit={(c) => openEditConnection(c)}
               onRemove={removeConnection}
               onShare={copyRoomInvite}
             />
@@ -582,7 +603,7 @@ function App() {
               initialPrompt={activePromptText}
               reflections={reflections}
               saveReflections={saveReflections}
-              onOpenCrisis={() => setShowCrisis(true)}
+              onOpenCrisis={openCrisis}
             />
           )}
 
@@ -590,9 +611,9 @@ function App() {
             <div className="footer-content">
               <p>© 2026 <b>Hareram Kushwaha</b>. All rights reserved.</p>
               <div className="footer-links">
-                <button type="button" onClick={() => setShowGuide(true)}>How it works</button>
+                <button type="button" onClick={openGuide}>How it works</button>
                 <span className="dot">•</span>
-                <button type="button" onClick={() => setShowCrisis(true)}>Crisis Support</button>
+                <button type="button" onClick={openCrisis}>Crisis Support</button>
                 <span className="dot">•</span>
                 <a href="https://github.com/ha-re-ram/Saantvana" target="_blank" rel="noopener noreferrer">
                   GitHub
@@ -612,7 +633,7 @@ function App() {
         <CallChoiceModal
           person={callChoiceTarget}
           profile={profile}
-          onClose={() => setCallChoiceTarget(null)}
+          onClose={closeModal}
           onSelectSaantvana={() => startSaantvanaCall(callChoiceTarget)}
           onSelectGoogleMeet={() => startGoogleMeet(callChoiceTarget)}
         />
@@ -621,7 +642,7 @@ function App() {
       {/* Add Connection Modal */}
       {showConnectionForm && (
         <ConnectionFormModal
-          onClose={() => setShowConnectionForm(false)}
+          onClose={closeModal}
           onSave={addConnection}
         />
       )}
@@ -630,9 +651,9 @@ function App() {
       {editingContact && (
         <EditConnectionModal
           contact={editingContact}
-          onClose={() => setEditingContact(null)}
+          onClose={closeModal}
           onSave={updateConnection}
-          onDelete={(c) => { removeConnection(c); setEditingContact(null); }}
+          onDelete={(c) => { removeConnection(c); closeModal(); }}
         />
       )}
 
@@ -640,8 +661,8 @@ function App() {
       {showSettings && (
         <SettingsModal
           profile={profile}
-          onSave={(p) => { saveProfile(p); setShowSettings(false); say('Preferences saved.'); }}
-          onClose={() => setShowSettings(false)}
+          onSave={(p) => { saveProfile(p); closeModal(); say('Preferences saved.'); }}
+          onClose={closeModal}
           connectionCount={connections.length}
           reflectionCount={reflections.length}
           onExportData={() => {
@@ -659,7 +680,7 @@ function App() {
               localStorage.clear();
               setConnections(defaultContacts);
               setReflections([]);
-              setShowSettings(false);
+              closeModal();
               say('All local data cleared.');
             }
           }}
@@ -668,12 +689,12 @@ function App() {
 
       {/* How Saantvana Works Modal */}
       {showGuide && (
-        <HowItWorksModal onClose={() => setShowGuide(false)}/>
+        <HowItWorksModal onClose={closeModal}/>
       )}
 
       {/* Confidential Crisis & Helplines Modal */}
       {showCrisis && (
-        <CrisisModal onClose={() => setShowCrisis(false)}/>
+        <CrisisModal onClose={closeModal}/>
       )}
 
       {/* Saantvana WebRTC 1:1 Video Call Modal with On-Device Depth */}
@@ -692,7 +713,7 @@ function App() {
           }}
           onOpenSettings={() => {
             setCall(null);
-            setShowSettings(true);
+            openSettings();
           }}
         />
       )}
@@ -1249,11 +1270,13 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
 // Comprehensive Wellbeing Page with Configurable Pause, 5-4-3-2-1 Grounding, and Saved Reflections
 function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpenCrisis }) {
   const [breathingState, sendBreathing] = useMachine(breathingMachine);
+  const [groundingState, sendGrounding] = useMachine(groundingMachine);
   const [activeTab, setActiveTab] = useState('pause'); // 'pause' | 'grounding'
   const [reflectionText, setReflectionText] = useState(initialPrompt ? `“${initialPrompt}”\n` : '');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const view = getBreathingView(breathingState);
+  const groundingView = getGroundingView(groundingState);
 
   // Breathing timer & gentle audio chime
   useEffect(() => {
@@ -1271,6 +1294,12 @@ function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpe
     else if (view.label === 'Rest softly') playGentleChime(528);
     else if (view.label === 'Breathe out slowly') playGentleChime(396);
   }, [view.label, view.isActive, soundEnabled]);
+
+  // Grounding chime trigger on step transitions
+  useEffect(() => {
+    if (!soundEnabled || !groundingView.isActive) return;
+    playGentleChime(440 + (5 - groundingView.stepNumber) * 45);
+  }, [groundingView.state, groundingView.isActive, soundEnabled]);
 
   const saveCurrentReflection = () => {
     const text = reflectionText.trim();
@@ -1370,33 +1399,133 @@ function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpe
             </button>
           </section>
         ) : (
-          /* 5-4-3-2-1 Grounding Tool */
+          /* 5-4-3-2-1 Somatic Grounding Tool with FSM */
           <section className="wellbeing-feature" style={{ overflowY: 'auto' }}>
-            <div className="eyebrow">GROUNDING MOMENT</div>
-            <h2>5-4-3-2-1 Sensory Reset</h2>
-            <p>Bring your attention to your immediate surroundings whenever thoughts feel loud.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="eyebrow">{groundingView.badge.toUpperCase()}</div>
+              <button
+                className="icon-button"
+                style={{ width: 32, height: 32 }}
+                title={soundEnabled ? 'Mute chimes' : 'Enable chimes'}
+                onClick={() => setSoundEnabled(!soundEnabled)}
+              >
+                {soundEnabled ? <Volume2 size={17}/> : <VolumeX size={17}/>}
+              </button>
+            </div>
 
-            <div className="grounding-box">
-              <div className="grounding-step-card">
-                <div className="grounding-num">5</div>
-                <div><b>Look around</b><p>Notice 5 things you can see right now (shapes, light, colors).</p></div>
-              </div>
-              <div className="grounding-step-card">
-                <div className="grounding-num">4</div>
-                <div><b>Touch</b><p>Notice 4 things you can physically feel (feet on floor, fabric, chair).</p></div>
-              </div>
-              <div className="grounding-step-card">
-                <div className="grounding-num">3</div>
-                <div><b>Listen</b><p>Notice 3 subtle sounds (hum of a fan, distant traffic, your breath).</p></div>
-              </div>
-              <div className="grounding-step-card">
-                <div className="grounding-num">2</div>
-                <div><b>Scent & Breath</b><p>Notice 2 scents or take 2 slow, intentional breaths.</p></div>
-              </div>
-              <div className="grounding-step-card">
-                <div className="grounding-num">1</div>
-                <div><b>Appreciate</b><p>Notice 1 kind thing about yourself or this moment right here.</p></div>
-              </div>
+            <h2>{groundingView.title}</h2>
+            <p>{groundingView.instruction}</p>
+
+            {/* Visual step indicators (5, 4, 3, 2, 1) */}
+            <div className="grounding-step-dots" role="tablist" aria-label="Grounding senses">
+              {[5, 4, 3, 2, 1].map((stepNum) => {
+                const isCurrent = groundingView.stepNumber === stepNum;
+                const isDone = groundingView.completedCount > (5 - stepNum);
+                return (
+                  <div
+                    key={stepNum}
+                    className={`grounding-dot ${isCurrent ? 'active' : ''} ${isDone ? 'done' : ''}`}
+                    title={`Step ${6 - stepNum}: ${stepNum} senses`}
+                  >
+                    {isDone ? <Check size={14}/> : stepNum}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Progress bar */}
+            <div className="grounding-progress-bar" role="progressbar" aria-valuenow={groundingView.progress} aria-valuemin="0" aria-valuemax="100">
+              <div className="grounding-progress-fill" style={{ width: `${groundingView.progress}%` }} />
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              {groundingView.state === GROUNDING_STATES.IDLE ? (
+                <button
+                  className="primary-button"
+                  onClick={() => sendGrounding({ type: GROUNDING_EVENTS.START })}
+                >
+                  {groundingView.buttonLabel} <ArrowRight size={16}/>
+                </button>
+              ) : groundingView.state === GROUNDING_STATES.COMPLETED ? (
+                <>
+                  <button
+                    className="primary-button"
+                    onClick={() => sendGrounding({ type: GROUNDING_EVENTS.START })}
+                  >
+                    <RotateCcw size={16}/> Start another grounding pause
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      sendGrounding({ type: GROUNDING_EVENTS.RESET });
+                      setReflectionText((prev) => (prev ? prev + '\n' : '') + 'Grounding complete: checked in with all 5 senses.');
+                      say('Grounding anchor added to reflection.');
+                    }}
+                  >
+                    Add note to reflection
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="primary-button"
+                    onClick={() => sendGrounding({ type: GROUNDING_EVENTS.NEXT })}
+                  >
+                    {groundingView.buttonLabel}
+                  </button>
+                  {groundingView.stepNumber < 5 && (
+                    <button
+                      className="secondary-button"
+                      onClick={() => sendGrounding({ type: GROUNDING_EVENTS.PREV })}
+                    >
+                      Previous
+                    </button>
+                  )}
+                  <button
+                    className="small-btn"
+                    onClick={() => sendGrounding({ type: GROUNDING_EVENTS.RESET })}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* All senses reference summary card list */}
+            <div className="grounding-box" style={{ marginTop: 20 }}>
+              {[
+                { n: 5, sense: 'Sight', text: '5 things you can see (shapes, light patterns, textures)' },
+                { n: 4, sense: 'Touch', text: '4 things you can physically feel (feet on floor, fabric, chair)' },
+                { n: 3, sense: 'Listen', text: '3 subtle sounds (hum of a fan, distant traffic, breath)' },
+                { n: 2, sense: 'Scent & Breath', text: '2 scents in the room or 2 gentle, deep breaths' },
+                { n: 1, sense: 'Presence', text: '1 kind thought about yourself or this quiet moment' },
+              ].map((item) => (
+                <div
+                  key={item.n}
+                  className="grounding-step-card"
+                  style={{
+                    borderColor: groundingView.stepNumber === item.n ? 'var(--purple)' : undefined,
+                    backgroundColor: groundingView.stepNumber === item.n ? 'var(--purple-subtle, rgba(142, 68, 173, 0.04))' : undefined,
+                    opacity: groundingView.isActive && groundingView.stepNumber !== item.n ? 0.65 : 1
+                  }}
+                >
+                  <div
+                    className="grounding-num"
+                    style={{
+                      background: groundingView.stepNumber === item.n ? 'var(--purple)' : undefined,
+                      color: groundingView.stepNumber === item.n ? '#fff' : undefined
+                    }}
+                  >
+                    {item.n}
+                  </div>
+                  <div>
+                    <b>{item.sense}</b>
+                    <p>{item.text}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}

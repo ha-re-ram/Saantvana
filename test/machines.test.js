@@ -19,6 +19,17 @@ import {
   CALL_STATES,
   CALL_EVENTS
 } from '../src/machines/callMachine.js';
+import {
+  groundingMachine,
+  GROUNDING_STATES,
+  GROUNDING_EVENTS,
+  getGroundingView
+} from '../src/machines/groundingMachine.js';
+import {
+  modalMachine,
+  MODAL_STATES,
+  MODAL_EVENTS
+} from '../src/machines/modalMachine.js';
 
 test('createMachine: basic transitions and guards', () => {
   const toggle = createMachine({
@@ -276,4 +287,110 @@ test('callMachine: WebRTC call connection and disconnect lifecycle', () => {
   // End call
   s = callMachine.transition(s.value, s.context, { type: CALL_EVENTS.END_CALL });
   assert.equal(s.value, CALL_STATES.ENDED);
+});
+
+test('groundingMachine: 5-4-3-2-1 somatic sensory steps progression and view', () => {
+  let s = groundingMachine.getInitialState();
+  assert.equal(s.value, GROUNDING_STATES.IDLE);
+  assert.equal(s.context.step, 0);
+
+  const initialView = getGroundingView(s);
+  assert.equal(initialView.isActive, false);
+  assert.equal(initialView.isCompleted, false);
+  assert.equal(initialView.buttonLabel, 'Begin sensory grounding');
+
+  // Start grounding
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.START });
+  assert.equal(s.value, GROUNDING_STATES.SEE);
+  assert.equal(s.context.step, 5);
+  assert.equal(s.context.completedCount, 0);
+
+  let view = getGroundingView(s);
+  assert.equal(view.isActive, true);
+  assert.equal(view.stepNumber, 5);
+  assert.equal(view.sense, 'Sight');
+
+  // Next: Touch (4)
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.NEXT });
+  assert.equal(s.value, GROUNDING_STATES.TOUCH);
+  assert.equal(s.context.step, 4);
+  assert.equal(s.context.completedCount, 1);
+
+  // Prev: Back to See (5)
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.PREV });
+  assert.equal(s.value, GROUNDING_STATES.SEE);
+  assert.equal(s.context.step, 5);
+
+  // Step through touch -> hear -> scent -> appreciate -> completed
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.NEXT }); // Touch
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.NEXT }); // Hear
+  assert.equal(s.value, GROUNDING_STATES.HEAR);
+  assert.equal(s.context.step, 3);
+  assert.equal(s.context.completedCount, 2);
+
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.NEXT }); // Scent
+  assert.equal(s.value, GROUNDING_STATES.SCENT);
+  assert.equal(s.context.step, 2);
+
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.NEXT }); // Appreciate
+  assert.equal(s.value, GROUNDING_STATES.APPRECIATE);
+  assert.equal(s.context.step, 1);
+
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.NEXT }); // Completed
+  assert.equal(s.value, GROUNDING_STATES.COMPLETED);
+  assert.equal(s.context.completedCount, 5);
+
+  const completedView = getGroundingView(s);
+  assert.equal(completedView.isCompleted, true);
+  assert.equal(completedView.isActive, false);
+  assert.equal(completedView.progress, 100);
+
+  // Reset to idle
+  s = groundingMachine.transition(s.value, s.context, { type: GROUNDING_EVENTS.RESET });
+  assert.equal(s.value, GROUNDING_STATES.IDLE);
+  assert.equal(s.context.completedCount, 0);
+});
+
+test('modalMachine: single-dialog overlay coordination without collision', () => {
+  let s = modalMachine.getInitialState();
+  assert.equal(s.value, MODAL_STATES.IDLE);
+  assert.equal(s.context.targetPerson, null);
+
+  // Open Settings
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.OPEN_SETTINGS });
+  assert.equal(s.value, MODAL_STATES.SETTINGS);
+
+  // Transition from Settings to Crisis Support (preserves previousModal for stack awareness)
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.OPEN_CRISIS });
+  assert.equal(s.value, MODAL_STATES.CRISIS);
+  assert.equal(s.context.previousModal, MODAL_STATES.SETTINGS);
+
+  // Close returns to IDLE
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.CLOSE });
+  assert.equal(s.value, MODAL_STATES.IDLE);
+
+  // Open Call Choice with target contact payload
+  const mockPerson = { id: 'p-1', name: 'Maya Chen' };
+  s = modalMachine.transition(s.value, s.context, {
+    type: MODAL_EVENTS.OPEN_CALL_CHOICE,
+    person: mockPerson
+  });
+  assert.equal(s.value, MODAL_STATES.CALL_CHOICE);
+  assert.equal(s.context.targetPerson, mockPerson);
+
+  // Close
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.CLOSE });
+  assert.equal(s.value, MODAL_STATES.IDLE);
+  assert.equal(s.context.targetPerson, null);
+
+  // Open Edit Connection
+  s = modalMachine.transition(s.value, s.context, {
+    type: MODAL_EVENTS.OPEN_EDIT_CONNECTION,
+    contact: mockPerson
+  });
+  assert.equal(s.value, MODAL_STATES.EDIT_CONNECTION);
+  assert.equal(s.context.targetPerson, mockPerson);
+
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.CLOSE });
+  assert.equal(s.value, MODAL_STATES.IDLE);
 });

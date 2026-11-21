@@ -1780,6 +1780,7 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
   display: flex;
   gap: 14px;
   align-items: flex-start;
+  transition: all 0.2s ease;
 }
 
 .grounding-num {
@@ -1793,10 +1794,59 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
   font-weight: 800;
   font-size: 14px;
   flex: none;
+  transition: all 0.2s ease;
 }
 
 .grounding-step-card b { font-size: 14px; color: var(--ink); }
 .grounding-step-card p { font-size: 13px; color: var(--ink-secondary); margin: 4px 0 0; line-height: 1.5; }
+
+.grounding-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 10px 0 14px;
+}
+
+.grounding-progress-fill {
+  height: 100%;
+  background: var(--purple);
+  transition: width 0.35s ease;
+}
+
+.grounding-step-dots {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.grounding-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1.5px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+  transition: all 0.2s ease;
+}
+
+.grounding-dot.active {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
+  box-shadow: 0 2px 8px rgba(142, 68, 173, 0.35);
+}
+
+.grounding-dot.done {
+  background: var(--purple-light);
+  color: var(--purple);
+  border-color: var(--purple-light);
+}
 
 /* Reflections History */
 .journal-history { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
