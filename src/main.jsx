@@ -781,13 +781,45 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Saantvana Option */}
+          <div
+            onClick={onSelectSaantvana}
+            style={{
+              padding: '18px 20px',
+              borderRadius: 16,
+              border: '2px solid var(--purple)',
+              background: 'var(--purple-light)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              transition: 'all 0.18s ease'
+            }}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--purple)', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none' }}>
+              <Waves size={24}/>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 15, color: 'var(--ink)' }}>Saantvana Presence Call</b>
+                <span style={{ fontSize: 11, background: '#ede9fe', color: 'var(--purple)', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                  WebRTC P2P · Depth View
+                </span>
+              </div>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-secondary)', marginTop: 4 }}>
+                Private 1:1 connection · On-device depth ambience · Zero cloud recording
+              </span>
+            </div>
+            <ArrowRight size={18} style={{ color: 'var(--purple)' }}/>
+          </div>
+
           {/* Google Meet Option */}
           <div
             onClick={onSelectGoogleMeet}
             style={{
               padding: '18px 20px',
               borderRadius: 16,
-              border: isStaticHost && !hasCustomSignal ? '2px solid #34a853' : '2px solid #d3e2d6',
+              border: '2px solid #d3e2d6',
               background: '#f8fdf9',
               cursor: 'pointer',
               display: 'flex',
@@ -802,44 +834,15 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <b style={{ fontSize: 15, color: '#137333' }}>Google Meet</b>
-                {isStaticHost && !hasCustomSignal && (
-                  <span style={{ fontSize: 11, background: '#e6f4ea', color: '#137333', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
-                    Instant · No server needed
-                  </span>
-                )}
+                <span style={{ fontSize: 11, background: '#e6f4ea', color: '#137333', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                  Instant · Companion Mode
+                </span>
               </div>
               <span style={{ display: 'block', fontSize: 13, color: '#274e2d', marginTop: 4 }}>
                 {person.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
               </span>
             </div>
             <ExternalLink size={18} style={{ color: '#137333' }}/>
-          </div>
-
-          {/* Saantvana Option */}
-          <div
-            onClick={onSelectSaantvana}
-            style={{
-              padding: '18px 20px',
-              borderRadius: 16,
-              border: !isStaticHost || hasCustomSignal ? '2px solid var(--purple)' : '1px solid var(--line)',
-              background: !isStaticHost || hasCustomSignal ? 'var(--purple-light)' : 'var(--surface)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              transition: 'all 0.18s ease'
-            }}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--purple)', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none' }}>
-              <Waves size={24}/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <b style={{ fontSize: 15, color: 'var(--ink)' }}>Saantvana Presence Call</b>
-              <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-secondary)', marginTop: 2 }}>
-                Private 1:1 WebRTC · Optional depth view · {isStaticHost && !hasCustomSignal ? 'Requires signaling backend' : 'On-device presence'}
-              </span>
-            </div>
-            <ArrowRight size={18} style={{ color: 'var(--purple)' }}/>
           </div>
         </div>
 
@@ -1539,7 +1542,13 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
         sendCall({ type: CALL_EVENTS.LOCAL_STREAM_ACQUIRED, stream });
 
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const defaultSignalUrl = `${protocol}//${location.host}/signal`;
+        const isStaticHost = typeof window !== 'undefined' && (
+          window.location.hostname.endsWith('github.io') ||
+          window.location.hostname.endsWith('pages.dev')
+        );
+        const defaultSignalUrl = isStaticHost
+          ? 'wss://saantvana.onrender.com/signal'
+          : `${protocol}//${location.host}/signal`;
         const signalUrl = (profile?.signalUrl && profile.signalUrl.trim()) ||
                           (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL) ||
                           defaultSignalUrl;

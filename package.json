@@ -5,7 +5,7 @@
   "description": "A calm, consent-led connection and wellbeing web app featuring private 1:1 presence video calls, Google Meet integration, on-device depth estimation, and mindful breathing pauses.",
   "type": "module",
   "author": "Hareram Kushwaha <23cs054@gmail.com> (https://github.com/ha-re-ram)",
-  "homepage": "https://ha-re-ram.github.io/Saantvana/",
+  "homepage": "https://saantvana.onrender.com/",
   "repository": {
     "type": "git",
     "url": "https://github.com/ha-re-ram/Saantvana.git"

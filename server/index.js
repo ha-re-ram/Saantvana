@@ -34,13 +34,25 @@ const server = createServer(async (req, res) => {
   }
 });
 
+const isAllowedOrigin = (originHost, reqHost) => {
+  if (!originHost) return true;
+  if (originHost === reqHost) return true;
+  return (
+    originHost.endsWith('github.io') ||
+    originHost.endsWith('pages.dev') ||
+    originHost.endsWith('onrender.com') ||
+    originHost.includes('localhost') ||
+    originHost.includes('127.0.0.1')
+  );
+};
+
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url, 'http://localhost');
   const origin = req.headers.origin;
   let originHost;
   try { originHost = origin ? new URL(origin).host : null; } catch { originHost = 'invalid'; }
-  if (url.pathname !== '/signal' || (originHost && originHost !== req.headers.host)) {
+  if (url.pathname !== '/signal' || !isAllowedOrigin(originHost, req.headers.host)) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return;
   }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws));

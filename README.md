@@ -87,45 +87,6 @@ npm start
 
 ---
 
-## ☁️ Live Deployment
-
-### Option 1: Cloudflare Pages (Recommended for Static CDN)
-
-1. Log into your [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
-2. Select repository `ha-re-ram/Saantvana`.
-3. Configure the build settings:
-   - **Framework preset**: `Vite`
-   - **Build command**: `npm run build`
-   - **Build output directory**: `dist`
-   - **Root directory**: `/`
-4. Click **Save and Deploy**.
-5. The repository includes `public/_redirects` (for SPA client-side routing) and `public/_headers` (for caching and security headers).
-
-*(Note: In static CDN deployments without a WebSocket backend, users can connect instantly via the built-in Google Meet integration, or specify a signaling server URL via the `VITE_SIGNAL_URL` environment variable).*
-
-### Option 2: GitHub Pages (Automated via GitHub Actions)
-
-1. In your GitHub repository at [https://github.com/ha-re-ram/Saantvana](https://github.com/ha-re-ram/Saantvana):
-   - Go to **Settings** > **Pages**.
-   - Under **Build and deployment** > **Source**, choose **GitHub Actions**.
-2. Every push to the `main` branch automatically triggers `.github/workflows/deploy-pages.yml`, runs the test suite, builds the distribution bundle, and publishes the site live to `https://ha-re-ram.github.io/Saantvana/`.
-
-### Option 3: Full-Stack Docker Deployment (Client + Signaling Server)
-
-To deploy both the frontend and the real-time WebSocket signaling backend:
-
-```bash
-# Build the Docker image
-docker build -t saantvana .
-
-# Run the container
-docker run -p 4173:4173 saantvana
-```
-
-This container can be deployed directly to cloud container providers such as Railway, Render, Fly.io, or any VPS.
-
----
-
 ## 👤 Author & Copyright
 
 - **Author**: Hareram Kushwaha
