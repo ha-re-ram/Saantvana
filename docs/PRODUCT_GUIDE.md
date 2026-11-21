@@ -1,5 +1,8 @@
 # Saantvana Product and Build Guide
 
+**Author & Maintainer:** Hareram Kushwaha ([@ha-re-ram](https://github.com/ha-re-ram)) · 2026  
+**License:** MIT
+
 ## 1. Purpose
 Saantvana is a mental wellbeing concept that aims to make remote conversations feel more emotionally present. Its starting point is a calm, consent-led way to connect with people a user already trusts. The source idea proposes 3D video calling through AI depth estimation, with AR and VR as later extensions.
 

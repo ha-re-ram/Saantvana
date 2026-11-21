@@ -1923,6 +1923,60 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
   .lower-grid { grid-template-columns: 1fr; }
 }
 
+/* App Footer */
+.app-footer {
+  margin-top: 48px;
+  padding: 28px 0 36px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.footer-content p {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: 13px;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-links button,
+.footer-links a {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.footer-links button:hover,
+.footer-links a:hover {
+  color: var(--purple);
+  text-decoration: underline;
+}
+
+.footer-links .dot {
+  color: var(--line);
+  font-size: 11px;
+}
+
 @media(max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
@@ -2072,5 +2126,15 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
   .call-controls button span {
     width: 32px;
     height: 32px;
+  }
+
+  .app-footer {
+    padding-bottom: 84px;
+  }
+
+  .footer-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }

@@ -1,8 +1,14 @@
-# Saantvana
+# Saantvana (सांत्वना) — Feel Closer
 
 A calm, consent-led connection and wellbeing Progressive Web Application (PWA) designed to foster emotional presence without pressure.
 
-## Highlights
+[![CI](https://github.com/ha-re-ram/Saantvana/actions/workflows/ci.yml/badge.svg)](https://github.com/ha-re-ram/Saantvana/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/ha-re-ram/Saantvana/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/ha-re-ram/Saantvana/actions/workflows/deploy-pages.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## 🌟 Key Highlights
 
 - **Private 1:1 Video Calls**: Direct peer-to-peer WebRTC video and audio calls with STUN assistance, in-call chat, screen sharing, and live reactions.
 - **Google Meet Integration**: Launch instant Google Meet calls or connect to saved personal Meet links in one click, with automated invitation copying.
@@ -13,15 +19,33 @@ A calm, consent-led connection and wellbeing Progressive Web Application (PWA) d
 - **Private by Default**: Saved contacts, check-ins, and reflections remain strictly in your device's browser storage (`localStorage`). No tracking or cloud databases.
 - **Responsive Mobile Experience**: Dedicated thumb-friendly bottom navigation bar, dynamic viewport sizing (`100dvh`), and full PWA offline caching.
 
-## Tech Stack
+---
 
-- **Frontend**: React 19, Vite, Lucide Icons
+## 📐 Architecture & State Machines
+
+Saantvana eliminates implicit states and race conditions using deterministic, zero-dependency Finite State Machines (`src/machines/`):
+
+1. **Call Session Machine (`callMachine.js`)**:
+   `IDLE` ➔ `REQUESTING_MEDIA` ➔ `CONNECTING_SIGNAL` ➔ `ROOM_READY` ➔ `NEGOTIATING` ➔ `CONNECTED` ➔ `PEER_LEFT` ➔ `ENDED` (with structured `ERROR` recovery).
+2. **On-Device Depth & Two-Party Consent Machine (`depthMachine.js`)**:
+   Decouples the Viewer Pipeline (`DISABLED` ➔ `IDLE` ➔ `REQUESTING` ➔ `APPROVED` ➔ `LOADING_MODEL` ➔ `ACTIVE` / `PAUSED` / `REVOKED`) from the Consent Provider Pipeline (`IDLE` ➔ `PROMPTED` ➔ `GRANTED` / `DECLINED`).
+3. **Mindful Breathing Machine (`breathingMachine.js`)**:
+   Orchestrates 14-second therapeutic cycles (`INHALING` 4s ➔ `HOLDING` 7s ➔ `EXHALING` 3s) with pause/resume support and audio chimes.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Client**: React 19, Vite, Lucide Icons
 - **Signaling Server**: Node.js, WebSockets (`ws`)
-- **State Orchestration**: Lightweight, zero-dependency Finite State Machines (`src/machines/`)
-- **AI / ML**: `@huggingface/transformers` (`depth-anything-small-hf` with WebGPU / WASM execution)
-- **Styling**: Pure CSS design system with custom properties and daylight / calm night modes
+- **State Orchestration**: Deterministic Finite State Machines (`src/machines/`)
+- **Inference**: `@huggingface/transformers` (`depth-anything-small-hf` with WebGPU / WASM execution)
+- **Styling**: Pure responsive CSS with custom properties and daylight / calm night modes
+- **PWA**: Service Worker with offline app-shell caching
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -31,41 +55,88 @@ A calm, consent-led connection and wellbeing Progressive Web Application (PWA) d
 ### Installation
 
 ```bash
+git clone https://github.com/ha-re-ram/Saantvana.git
+cd Saantvana
 npm install
 ```
 
-### Development
+### Development Mode
+
+Start both Vite and the WebSocket signaling server in one command:
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:4173` in your browser.
+Open `http://localhost:4173` in your browser.
 
-### Unit Tests
+### Automated Test Suite
 
-Run the native Node.js test suite:
+Run the native Node.js unit tests for all state machines:
 
 ```bash
 npm test
 ```
 
-### Production Build & Serve
+### Production Build & Local Server
 
 ```bash
 npm run build
 npm start
 ```
 
-## Docker Deployment
+---
 
-Build and run the container:
+## ☁️ Live Deployment
+
+### Option 1: Cloudflare Pages (Recommended for Static CDN)
+
+1. Log into your [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
+2. Select repository `ha-re-ram/Saantvana`.
+3. Configure the build settings:
+   - **Framework preset**: `Vite`
+   - **Build command**: `npm run build`
+   - **Build output directory**: `dist`
+   - **Root directory**: `/`
+4. Click **Save and Deploy**.
+5. The repository includes `public/_redirects` (for SPA client-side routing) and `public/_headers` (for caching and security headers).
+
+*(Note: In static CDN deployments without a WebSocket backend, users can connect instantly via the built-in Google Meet integration, or specify a signaling server URL via the `VITE_SIGNAL_URL` environment variable).*
+
+### Option 2: GitHub Pages (Automated via GitHub Actions)
+
+1. In your GitHub repository at [https://github.com/ha-re-ram/Saantvana](https://github.com/ha-re-ram/Saantvana):
+   - Go to **Settings** > **Pages**.
+   - Under **Build and deployment** > **Source**, choose **GitHub Actions**.
+2. Every push to the `main` branch automatically triggers `.github/workflows/deploy-pages.yml`, runs the test suite, builds the distribution bundle, and publishes the site live to `https://ha-re-ram.github.io/Saantvana/`.
+
+### Option 3: Full-Stack Docker Deployment (Client + Signaling Server)
+
+To deploy both the frontend and the real-time WebSocket signaling backend:
 
 ```bash
+# Build the Docker image
 docker build -t saantvana .
+
+# Run the container
 docker run -p 4173:4173 saantvana
 ```
 
-## License
+This container can be deployed directly to cloud container providers such as Railway, Render, Fly.io, or any VPS.
 
-MIT - see [LICENSE](LICENSE) for details.
+---
+
+## 👤 Author & Copyright
+
+- **Author**: Hareram Kushwaha
+- **GitHub**: [@ha-re-ram](https://github.com/ha-re-ram)
+- **Email**: `23cs054@gmail.com`
+- **Repository**: [https://github.com/ha-re-ram/Saantvana](https://github.com/ha-re-ram/Saantvana)
+
+Copyright (c) 2026 Hareram Kushwaha. All rights reserved.
+
+---
+
+## 📄 License
+
+This project is open-source software licensed under the [MIT License](LICENSE).

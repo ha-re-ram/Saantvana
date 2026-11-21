@@ -585,6 +585,23 @@ function App() {
               onOpenCrisis={() => setShowCrisis(true)}
             />
           )}
+
+          <footer className="app-footer">
+            <div className="footer-content">
+              <p>© 2026 <b>Hareram Kushwaha</b>. All rights reserved.</p>
+              <div className="footer-links">
+                <button type="button" onClick={() => setShowGuide(true)}>How it works</button>
+                <span className="dot">•</span>
+                <button type="button" onClick={() => setShowCrisis(true)}>Crisis Support</button>
+                <span className="dot">•</span>
+                <a href="https://github.com/ha-re-ram/Saantvana" target="_blank" rel="noopener noreferrer">
+                  GitHub
+                </a>
+                <span className="dot">•</span>
+                <a href="mailto:23cs054@gmail.com">Contact</a>
+              </div>
+            </div>
+          </footer>
         </div>
       </main>
 
@@ -1499,7 +1516,9 @@ function CallModal({ person, profile, onClose }) {
         sendCall({ type: CALL_EVENTS.LOCAL_STREAM_ACQUIRED, stream });
 
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socket = new WebSocket(`${protocol}//${location.host}/signal`);
+        const defaultSignalUrl = `${protocol}//${location.host}/signal`;
+        const signalUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL) || defaultSignalUrl;
+        const socket = new WebSocket(signalUrl);
         socketRef.current = socket;
 
         socket.onopen = () => {
@@ -1513,7 +1532,7 @@ function CallModal({ person, profile, onClose }) {
         socket.onerror = () => {
           sendCall({
             type: CALL_EVENTS.SOCKET_ERROR,
-            message: 'Could not reach Saantvana’s signaling service. Check that the app server is running.'
+            message: 'Could not reach Saantvana’s signaling service. If using static hosting (Cloudflare/GitHub Pages), connect via Google Meet or configure VITE_SIGNAL_URL.'
           });
         };
 
@@ -2517,6 +2536,16 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
             </div>
           </div>
 
+          <div className="settings-item" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+            <label>Author & License</label>
+            <p style={{ fontSize: '13px', color: 'var(--ink-secondary)', margin: '4px 0' }}>
+              Saantvana v1.0.0 · Designed & built by <b>Hareram Kushwaha</b> (<a href="https://github.com/ha-re-ram" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>@ha-re-ram</a>).
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--ink-muted)', margin: 0 }}>
+              MIT Licensed · Watermark-free, privacy-first on-device software.
+            </p>
+          </div>
+
           <div className="form-actions" style={{ marginTop: 14 }}>
             <button type="button" className="outline-button" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary-button">Save preferences</button>
@@ -2554,6 +2583,9 @@ function HowItWorksModal({ onClose }) {
           <button className={`tab-btn ${guideTab === 'privacy' ? 'active' : ''}`} onClick={() => setGuideTab('privacy')}>
             Privacy Principles
           </button>
+          <button className={`tab-btn ${guideTab === 'about' ? 'active' : ''}`} onClick={() => setGuideTab('about')}>
+            Author & Project
+          </button>
         </div>
 
         {guideTab === 'calls' && (
@@ -2582,6 +2614,17 @@ function HowItWorksModal({ onClose }) {
             <h3>Client-Side Storage Only</h3>
             <p>Your connections, personal check-ins, and reflections are saved only in your device’s browser storage (localStorage). There are no user accounts, passwords, or cloud databases tracking your activity.</p>
             <p>Saantvana does not score or gamify mental health. We believe in calm, dignified human connection without streaks or pressure.</p>
+          </div>
+        )}
+
+        {guideTab === 'about' && (
+          <div className="guide-section">
+            <span className="guide-badge"><ShieldCheck size={15}/> Created with Care</span>
+            <h3>About Saantvana</h3>
+            <p><b>Author & Maintainer:</b> Hareram Kushwaha (<a href="https://github.com/ha-re-ram" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>@ha-re-ram</a>)</p>
+            <p><b>Contact Email:</b> <a href="mailto:23cs054@gmail.com" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>23cs054@gmail.com</a></p>
+            <p><b>GitHub Repository:</b> <a href="https://github.com/ha-re-ram/Saantvana" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>github.com/ha-re-ram/Saantvana</a></p>
+            <p style={{ marginTop: 10 }}>Saantvana was conceived and engineered to foster genuine, unpressured emotional presence between people who already care about each other. It operates under strict two-party consent with no cloud video telemetry and zero algorithmic gamification.</p>
           </div>
         )}
 

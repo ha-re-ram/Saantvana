@@ -1,11 +1,18 @@
 {
   "name": "Saantvana — Feel closer",
   "short_name": "Saantvana",
-  "description": "A calmer space for meaningful connection.",
-  "start_url": "/",
-  "scope": "/",
+  "description": "A calm, consent-led connection and wellbeing web app.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f6f4fb",
-  "theme_color": "#f6f4fb",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "background_color": "#f8f7fb",
+  "theme_color": "#f8f7fb",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
