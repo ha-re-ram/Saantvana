@@ -598,7 +598,7 @@ function App() {
                   GitHub
                 </a>
                 <span className="dot">•</span>
-                <a href="mailto:23cs054@gmail.com">Contact</a>
+                <a href="mailto:hareramkushwaha054@gmail.com">Contact</a>
               </div>
             </div>
           </footer>
@@ -922,22 +922,21 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
           <h2>Presence is a gift<br/>you can share.</h2>
           <p>Make a little room for someone you care about. Choose an immersive depth call or jump into Google Meet.</p>
 
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button className="primary-button" onClick={() => onInitiateCall(people[0])}>
-              <Video size={18}/> Create a presence call <ArrowRight size={16}/>
-            </button>
+          <div className="hero-actions">
             <button
-              className="google-meet-btn"
-              style={{ background: '#fff' }}
+              className="google-meet-btn primary-meet"
               onClick={() => onStartGoogleMeet(people[0])}
             >
               <GoogleMeetLogo size={18}/>
               <span>Start Google Meet</span>
             </button>
+            <button className="outline-button hero-presence-btn" onClick={() => onInitiateCall(people[0])}>
+              <Waves size={16}/> Saantvana Presence
+            </button>
           </div>
 
           <div className="hero-caption">
-            <ShieldCheck size={16}/> Private 1:1 video · peer-to-peer when the network allows · Google Meet enabled
+            <ShieldCheck size={16}/> Direct Google Meet enabled · Private 1:1 presence & depth available
           </div>
         </div>
 
@@ -958,7 +957,7 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
         <div>
           <div className="eyebrow">YOUR PEOPLE</div>
           <h3>Keep the connection going</h3>
-          <div className="sample-note">Trusted people stored only on this browser. Share a private link or Google Meet anytime.</div>
+          <div className="sample-note">Trusted people stored only on this browser. Connect via Google Meet or private link.</div>
         </div>
         <button className="text-button" onClick={() => go('Connections')}>
           All connections ({people.length}) <ArrowRight size={16}/>
@@ -967,7 +966,14 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
 
       <div className="people-grid">
         {people.slice(0, 3).map((p) => (
-          <PersonCard key={p.id || p.name} person={p} onInitiateCall={onInitiateCall} say={say} onRemove={onRemove}/>
+          <PersonCard
+            key={p.id || p.name}
+            person={p}
+            onInitiateCall={onInitiateCall}
+            onStartGoogleMeet={onStartGoogleMeet}
+            say={say}
+            onRemove={onRemove}
+          />
         ))}
       </div>
 
@@ -1066,7 +1072,7 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
   );
 }
 
-function PersonCard({ person, onInitiateCall, say, onRemove }) {
+function PersonCard({ person, onInitiateCall, onStartGoogleMeet, say, onRemove }) {
   return (
     <article className="person-card">
       <div className={`avatar avatar-${person.color || 'peach'}`}>{person.initials}</div>
@@ -1075,22 +1081,33 @@ function PersonCard({ person, onInitiateCall, say, onRemove }) {
         <span>{person.relation}</span>
         <small><i className="local-dot"/>{person.group} · {person.time || 'Local contact'}</small>
       </div>
-      <button
-        className="call-button"
-        aria-label={`Start a call with ${person.name}`}
-        onClick={() => onInitiateCall(person)}
-        title="Start presence call or Google Meet"
-      >
-        <Video size={18}/>
-      </button>
-      <button
-        className="person-more"
-        aria-label={`Remove ${person.name}`}
-        onClick={() => onRemove?.(person)}
-        title="Remove connection"
-      >
-        <X size={17}/>
-      </button>
+      <div className="person-card-actions">
+        <button
+          className="meet-card-btn"
+          aria-label={`Start Google Meet with ${person.name}`}
+          onClick={() => onStartGoogleMeet?.(person)}
+          title="Start Google Meet"
+        >
+          <GoogleMeetLogo size={16}/>
+          <span className="meet-card-text">Meet</span>
+        </button>
+        <button
+          className="presence-card-btn"
+          aria-label={`Start presence call with ${person.name}`}
+          onClick={() => onInitiateCall(person)}
+          title="Saantvana Presence Call"
+        >
+          <Waves size={15}/>
+        </button>
+        <button
+          className="person-more"
+          aria-label={`Remove ${person.name}`}
+          onClick={() => onRemove?.(person)}
+          title="Remove connection"
+        >
+          <X size={15}/>
+        </button>
+      </div>
     </article>
   );
 }
@@ -1166,23 +1183,31 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
                 <span>{p.time || 'Local contact'}</span>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* Direct Google Meet Button */}
+              <div className="connection-actions">
+                {/* Direct Google Meet Button (Default Primary) */}
                 <button
-                  className="google-meet-btn"
+                  className="google-meet-btn primary-meet"
                   onClick={() => onStartGoogleMeet(p)}
                   title={`Start Google Meet with ${p.name}`}
                 >
                   <GoogleMeetLogo size={16}/>
-                  <span>Meet</span>
+                  <span>Start Meet</span>
+                </button>
+
+                <button
+                  className="outline-button presence-action-btn"
+                  onClick={() => onInitiateCall(p)}
+                  title="Saantvana Presence Call (WebRTC & Depth)"
+                >
+                  <Waves size={15}/> Presence
                 </button>
 
                 <button
                   className="outline-button"
                   onClick={() => onShare(p)}
-                  title="Copy direct invite link for this connection"
+                  title="Copy direct invite link"
                 >
-                  <Share2 size={15}/> Invite
+                  <Share2 size={15}/>
                 </button>
 
                 <button
@@ -1190,14 +1215,15 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
                   onClick={() => onEdit(p)}
                   title="Edit connection details"
                 >
-                  <Edit3 size={15}/> Edit
+                  <Edit3 size={15}/>
                 </button>
 
                 <button
-                  className="primary-button row-call"
-                  onClick={() => onInitiateCall(p)}
+                  className="icon-button delete-conn-btn"
+                  onClick={() => onRemove(p)}
+                  title="Remove connection"
                 >
-                  <Video size={16}/> Presence Call
+                  <Trash2 size={15}/>
                 </button>
               </div>
             </div>
@@ -1566,7 +1592,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
         socket.onerror = () => {
           sendCall({
             type: CALL_EVENTS.SOCKET_ERROR,
-            message: 'Could not reach Saantvana’s signaling service. If using static hosting (Cloudflare/GitHub Pages), connect via Google Meet or configure VITE_SIGNAL_URL.'
+            message: 'Could not reach Saantvana’s signaling service. Connect via Google Meet or verify the signaling server.'
           });
         };
 
@@ -2021,7 +2047,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
                     <span className="fallback-badge">STATIC HOSTING NOTICE</span>
                     <b style={{ fontSize: '16px', display: 'block', marginTop: 4 }}>Signaling Service Unreachable</b>
                     <p style={{ maxWidth: 360, fontSize: 13, color: '#e0def4', lineHeight: 1.5, margin: '8px auto 16px' }}>
-                      GitHub Pages & Cloudflare Pages serve static files and cannot run background WebSocket servers without a backend URL.
+                      Static hosting serves files without a background WebSocket server. Connect directly with Google Meet or connect through Render.
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                       {onSwitchToGoogleMeet && (
@@ -2705,7 +2731,7 @@ function HowItWorksModal({ onClose }) {
             <span className="guide-badge"><ShieldCheck size={15}/> Created with Care</span>
             <h3>About Saantvana</h3>
             <p><b>Author & Maintainer:</b> Hareram Kushwaha (<a href="https://github.com/ha-re-ram" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>@ha-re-ram</a>)</p>
-            <p><b>Contact Email:</b> <a href="mailto:23cs054@gmail.com" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>23cs054@gmail.com</a></p>
+            <p><b>Contact Email:</b> <a href="mailto:hareramkushwaha054@gmail.com" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>hareramkushwaha054@gmail.com</a></p>
             <p><b>GitHub Repository:</b> <a href="https://github.com/ha-re-ram/Saantvana" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'underline' }}>github.com/ha-re-ram/Saantvana</a></p>
             <p style={{ marginTop: 10 }}>Saantvana was conceived and engineered to foster genuine, unpressured emotional presence between people who already care about each other. It operates under strict two-party consent with no cloud video telemetry and zero algorithmic gamification.</p>
           </div>

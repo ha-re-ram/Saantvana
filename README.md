@@ -1,23 +1,67 @@
 # Saantvana (सांत्वना) — Feel Closer
 
-A calm, consent-led connection and wellbeing Progressive Web Application (PWA) designed to foster emotional presence without pressure.
+A calm, consent-led connection and wellbeing web application designed to foster emotional presence without pressure.
 
+[![Live on Render](https://img.shields.io/badge/Live%20App-Render-46E3B7?logo=render&logoColor=black)](https://saantvana.onrender.com/)
+[![Live on GitHub Pages](https://img.shields.io/badge/Live%20App-GitHub%20Pages-2ea44f?logo=github)](https://ha-re-ram.github.io/Saantvana/)
 [![CI](https://github.com/ha-re-ram/Saantvana/actions/workflows/ci.yml/badge.svg)](https://github.com/ha-re-ram/Saantvana/actions/workflows/ci.yml)
-[![Deploy to GitHub Pages](https://github.com/ha-re-ram/Saantvana/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/ha-re-ram/Saantvana/actions/workflows/deploy-pages.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
 ## 🌟 Key Highlights
 
+- **Direct Google Meet by Default**: Launch instant, high-definition Google Meet rooms in one click with automated invitation copying and calm companion mode.
 - **Private 1:1 Video Calls**: Direct peer-to-peer WebRTC video and audio calls with STUN assistance, in-call chat, screen sharing, and live reactions.
-- **Google Meet Integration**: Launch instant Google Meet calls or connect to saved personal Meet links in one click, with automated invitation copying.
 - **On-Device Depth View**: Optional subtle depth-layer effect rendered locally using client-side Transformers.js. Video frames are never uploaded to cloud inference servers.
 - **Strict Two-Party Consent**: Depth view requires explicit remote participant approval and can be revoked at any moment.
 - **Mindful Pauses**: Guided breathing exercises with customizable durations (1 min, 2 min, 3 min) and gentle synthesized audio chimes.
 - **5-4-3-2-1 Sensory Grounding**: Step-by-step grounding tool to reset attention in moments of overwhelm.
 - **Private by Default**: Saved contacts, check-ins, and reflections remain strictly in your device's browser storage (`localStorage`). No tracking or cloud databases.
-- **Responsive Mobile Experience**: Dedicated thumb-friendly bottom navigation bar, dynamic viewport sizing (`100dvh`), and full PWA offline caching.
+- **Responsive Mobile Experience**: Clean bottom navigation bar, dynamic viewport sizing (`100dvh`), and offline app-shell caching.
+
+---
+
+## 🚀 Use Directly or Clone & Run
+
+### 1. Use the Live Web Application
+You can use the application immediately in any modern browser on mobile, tablet, or desktop:
+- **Render (Full-Stack WebRTC + Signaling)**: [https://saantvana.onrender.com/](https://saantvana.onrender.com/)
+- **GitHub Pages**: [https://ha-re-ram.github.io/Saantvana/](https://ha-re-ram.github.io/Saantvana/)
+
+---
+
+### 2. Clone and Setup Locally
+
+#### Prerequisites
+- Node.js 20 or higher
+- npm 10 or higher
+
+#### Clone & Install
+```bash
+git clone https://github.com/ha-re-ram/Saantvana.git
+cd Saantvana
+npm install
+```
+
+#### Run in Development Mode
+Starts the client and WebSocket signaling service:
+```bash
+npm run dev
+```
+Open `http://localhost:4173` in your browser.
+
+#### Run Automated Test Suites
+Runs the zero-dependency test suite verifying state machines:
+```bash
+npm test
+```
+
+#### Build & Start Production Server
+```bash
+npm run build
+npm start
+```
 
 ---
 
@@ -41,49 +85,6 @@ Saantvana eliminates implicit states and race conditions using deterministic, ze
 - **State Orchestration**: Deterministic Finite State Machines (`src/machines/`)
 - **Inference**: `@huggingface/transformers` (`depth-anything-small-hf` with WebGPU / WASM execution)
 - **Styling**: Pure responsive CSS with custom properties and daylight / calm night modes
-- **PWA**: Service Worker with offline app-shell caching
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js 20 or higher
-- npm 10 or higher
-
-### Installation
-
-```bash
-git clone https://github.com/ha-re-ram/Saantvana.git
-cd Saantvana
-npm install
-```
-
-### Development Mode
-
-Start both Vite and the WebSocket signaling server in one command:
-
-```bash
-npm run dev
-```
-
-Open `http://localhost:4173` in your browser.
-
-### Automated Test Suite
-
-Run the native Node.js unit tests for all state machines:
-
-```bash
-npm test
-```
-
-### Production Build & Local Server
-
-```bash
-npm run build
-npm start
-```
 
 ---
 
@@ -91,7 +92,7 @@ npm start
 
 - **Author**: Hareram Kushwaha
 - **GitHub**: [@ha-re-ram](https://github.com/ha-re-ram)
-- **Email**: `23cs054@gmail.com`
+- **Email**: `hareramkushwaha054@gmail.com`
 - **Repository**: [https://github.com/ha-re-ram/Saantvana](https://github.com/ha-re-ram/Saantvana)
 
 Copyright (c) 2026 Hareram Kushwaha. All rights reserved.
