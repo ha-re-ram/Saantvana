@@ -344,7 +344,7 @@ function App() {
 
         {showWorkspaceMenu && (
           <div className="popover-menu workspace-popover" onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: '6px 14px 8px', fontSize: '11px', fontWeight: 800, color: '#888' }}>SPACES</div>
+            <div style={{ padding: '6px 14px 8px', fontSize: '11px', fontWeight: 800, color: 'var(--ink-muted)' }}>SPACES</div>
             {['Personal wellbeing', 'Family & Close Friends', 'Support & Reflection'].map((sp) => (
               <button
                 key={sp}
@@ -451,7 +451,7 @@ function App() {
                     <button onClick={() => { setNotifications([]); say('Notifications cleared.'); }}>Clear all</button>
                   </div>
                   {notifications.length === 0 ? (
-                    <div style={{ padding: '20px 8px', textAlign: 'center', fontSize: '13px', color: '#888' }}>
+                    <div style={{ padding: '20px 8px', textAlign: 'center', fontSize: '13px', color: 'var(--ink-muted)' }}>
                       You’re all caught up.
                     </div>
                   ) : (
@@ -495,7 +495,6 @@ function App() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   className="outline-button"
-                  style={{ background: '#fff' }}
                   onClick={() => { go('Wellbeing'); setActiveMeetSession(null); }}
                 >
                   <Activity size={15}/> Mindful pause
@@ -803,67 +802,41 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Saantvana Option */}
-          <div
-            onClick={onSelectSaantvana}
-            style={{
-              padding: '18px 20px',
-              borderRadius: 16,
-              border: '2px solid var(--purple)',
-              background: 'var(--purple-light)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              transition: 'all 0.18s ease'
-            }}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--purple)', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <div className="call-choice-card presence-choice" onClick={onSelectSaantvana}>
+            <div className="choice-icon">
               <Waves size={24}/>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <b style={{ fontSize: 15, color: 'var(--ink)' }}>Saantvana Presence Call</b>
-                <span style={{ fontSize: 11, background: '#ede9fe', color: 'var(--purple)', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                <b>Saantvana Presence Call</b>
+                <span className="choice-badge">
                   WebRTC 1:1 · Direct Private Call
                 </span>
               </div>
-              <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-secondary)', marginTop: 4 }}>
+              <span className="choice-desc">
                 Private 1:1 connection · Direct WebRTC video & screen sharing · Zero cloud recording
               </span>
             </div>
-            <ArrowRight size={18} style={{ color: 'var(--purple)' }}/>
+            <ArrowRight size={18} className="choice-arrow"/>
           </div>
 
           {/* Google Meet Option */}
-          <div
-            onClick={onSelectGoogleMeet}
-            style={{
-              padding: '18px 20px',
-              borderRadius: 16,
-              border: '2px solid #d3e2d6',
-              background: '#f8fdf9',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              transition: 'all 0.18s ease'
-            }}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fff', border: '1px solid #c7e0cd', display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <div className="call-choice-card meet-choice" onClick={onSelectGoogleMeet}>
+            <div className="choice-icon">
               <GoogleMeetLogo size={26}/>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <b style={{ fontSize: 15, color: '#137333' }}>Google Meet</b>
-                <span style={{ fontSize: 11, background: '#e6f4ea', color: '#137333', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                <b>Google Meet</b>
+                <span className="choice-badge">
                   Instant · Companion Mode
                 </span>
               </div>
-              <span style={{ display: 'block', fontSize: 13, color: '#274e2d', marginTop: 4 }}>
+              <span className="choice-desc">
                 {person?.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
               </span>
             </div>
-            <ExternalLink size={18} style={{ color: '#137333' }}/>
+            <ExternalLink size={18} className="choice-arrow"/>
           </div>
         </div>
 
@@ -1599,7 +1572,7 @@ function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpe
                       onClick={() => deleteReflection(r.id)}
                       title="Delete saved reflection"
                     >
-                      <Trash2 size={14} style={{ color: '#b1aebb' }}/>
+                      <Trash2 size={14} style={{ color: 'var(--ink-muted)' }}/>
                     </button>
                   </div>
                 ))}
@@ -2743,47 +2716,104 @@ function CrisisModal({ onClose }) {
           If you are feeling overwhelmed, hopeless, or just need to speak with a trained person right now, free and confidential support is available 24 hours a day, 7 days a week.
         </p>
 
-        {/* United States & Canada */}
+        {/* 1. Nepal (First) */}
         <div className="crisis-resource-card">
-          <b>988 Suicide & Crisis Lifeline <span style={{ fontSize: '11px', color: 'var(--purple)' }}>US & Canada</span></b>
+          <b>
+            <span>National Suicide Prevention Helpline</span>
+            <span className="crisis-badge">Nepal · 24/7 Toll-Free</span>
+          </b>
+          <p>Government of Nepal official 24/7 toll-free crisis and emotional support helpline operated by Mental Hospital Lagankhel & Ministry of Health and Population.</p>
+          <div className="crisis-actions-row">
+            <a href="tel:1166" className="crisis-contact-action"><Phone size={14}/> Call 1166 (Toll-Free)</a>
+          </div>
+        </div>
+
+        <div className="crisis-resource-card">
+          <b>
+            <span>TUTH & KOSHISH Psychosocial Support</span>
+            <span className="crisis-badge">Nepal</span>
+          </b>
+          <p>Tribhuvan University Teaching Hospital (TUTH) crisis support at 9840021600; KOSHISH National Mental Health Self-Help Helpline at 16600122322; TPO Nepal toll-free at 16600102005.</p>
+          <div className="crisis-actions-row">
+            <a href="tel:9840021600" className="crisis-contact-action"><Phone size={14}/> Call TUTH 9840021600</a>
+            <a href="tel:16600122322" className="crisis-contact-action" style={{ background: '#593ec2' }}><Phone size={14}/> Call KOSHISH 16600122322</a>
+          </div>
+        </div>
+
+        {/* 2. India (Second) */}
+        <div className="crisis-resource-card">
+          <b>
+            <span>Tele-MANAS National Mental Health Helpline</span>
+            <span className="crisis-badge">India · 24/7 Toll-Free</span>
+          </b>
+          <p>Government of India 24/7 comprehensive tele-mental health programme available across India in 20+ languages via toll-free 14416 or 1800-891-4416.</p>
+          <div className="crisis-actions-row">
+            <a href="tel:14416" className="crisis-contact-action"><Phone size={14}/> Call 14416</a>
+            <a href="tel:18008914416" className="crisis-contact-action" style={{ background: '#593ec2' }}><Phone size={14}/> Call 1800-891-4416</a>
+          </div>
+        </div>
+
+        <div className="crisis-resource-card">
+          <b>
+            <span>Vandrevala Foundation & KIRAN Helpline</span>
+            <span className="crisis-badge">India · 24/7</span>
+          </b>
+          <p>Vandrevala Foundation free 24/7 mental health counseling at +91 9999 666 555; Ministry of Social Justice KIRAN mental health helpline at 1800-599-0019.</p>
+          <div className="crisis-actions-row">
+            <a href="tel:+919999666555" className="crisis-contact-action"><Phone size={14}/> Call +91 9999 666 555</a>
+            <a href="tel:18005990019" className="crisis-contact-action" style={{ background: '#593ec2' }}><Phone size={14}/> Call KIRAN 1800-599-0019</a>
+          </div>
+        </div>
+
+        {/* 3. United States & Canada */}
+        <div className="crisis-resource-card">
+          <b>
+            <span>988 Suicide & Crisis Lifeline</span>
+            <span className="crisis-badge">US & Canada · 24/7</span>
+          </b>
           <p>Free, confidential support for anyone in suicidal crisis or emotional distress. Call or text 988.</p>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="crisis-actions-row">
             <a href="tel:988" className="crisis-contact-action"><Phone size={14}/> Call 988</a>
             <a href="sms:988" className="crisis-contact-action" style={{ background: '#593ec2' }}>Text 988</a>
           </div>
         </div>
 
-        {/* Crisis Text Line */}
+        {/* 4. United Kingdom */}
         <div className="crisis-resource-card">
-          <b>Crisis Text Line <span style={{ fontSize: '11px', color: 'var(--purple)' }}>US, UK, Canada</span></b>
-          <p>Connect with a crisis counselor 24/7 over free SMS text.</p>
-          <a href="sms:741741?&body=HOME" className="crisis-contact-action"><MessageCircle size={14}/> Text HOME to 741741</a>
-        </div>
-
-        {/* United Kingdom */}
-        <div className="crisis-resource-card">
-          <b>Samaritans & NHS 111 <span style={{ fontSize: '11px', color: 'var(--purple)' }}>United Kingdom</span></b>
+          <b>
+            <span>Samaritans & NHS 111</span>
+            <span className="crisis-badge">United Kingdom · 24/7</span>
+          </b>
           <p>Call 116 123 for Samaritans (free 24/7) or call 111 for mental health crisis support.</p>
-          <a href="tel:116123" className="crisis-contact-action"><Phone size={14}/> Call 116 123</a>
-        </div>
-
-        {/* India */}
-        <div className="crisis-resource-card">
-          <b>Tele-MANAS & Vandrevala Foundation <span style={{ fontSize: '11px', color: 'var(--purple)' }}>India</span></b>
-          <p>National Tele Mental Health Programme toll-free helpline 14416 / 1800-891-4416; Vandrevala Foundation +91 9999 666 555.</p>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <a href="tel:14416" className="crisis-contact-action"><Phone size={14}/> Call 14416</a>
-            <a href="tel:+919999666555" className="crisis-contact-action" style={{ background: '#593ec2' }}><Phone size={14}/> Call Vandrevala</a>
+          <div className="crisis-actions-row">
+            <a href="tel:116123" className="crisis-contact-action"><Phone size={14}/> Call 116 123</a>
           </div>
         </div>
 
-        {/* International */}
+        {/* 5. Crisis Text Line */}
         <div className="crisis-resource-card">
-          <b>Befrienders Worldwide <span style={{ fontSize: '11px', color: 'var(--purple)' }}>Global Directory</span></b>
-          <p>Find free, confidential emotional support helplines in over 30 countries worldwide.</p>
-          <a href="https://www.befrienders.org" target="_blank" rel="noopener noreferrer" className="crisis-contact-action">
-            <ExternalLink size={14}/> Visit befrienders.org
-          </a>
+          <b>
+            <span>Crisis Text Line</span>
+            <span className="crisis-badge">US, UK, Canada · 24/7 Free SMS</span>
+          </b>
+          <p>Connect with a crisis counselor 24/7 over free, confidential SMS text message.</p>
+          <div className="crisis-actions-row">
+            <a href="sms:741741?&body=HOME" className="crisis-contact-action"><MessageCircle size={14}/> Text HOME to 741741</a>
+          </div>
+        </div>
+
+        {/* 6. International Directory */}
+        <div className="crisis-resource-card">
+          <b>
+            <span>Befrienders Worldwide</span>
+            <span className="crisis-badge">Global Directory</span>
+          </b>
+          <p>Find free, confidential emotional support and volunteer-led helplines in over 30 countries worldwide.</p>
+          <div className="crisis-actions-row">
+            <a href="https://www.befrienders.org" target="_blank" rel="noopener noreferrer" className="crisis-contact-action">
+              <ExternalLink size={14}/> Visit befrienders.org
+            </a>
+          </div>
         </div>
 
         <div className="form-actions" style={{ marginTop: 18 }}>

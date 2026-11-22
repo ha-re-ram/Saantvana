@@ -7,15 +7,15 @@
   --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
 
-  /* Color Palette */
-  --ink: #1a1727;
-  --ink-secondary: #4a455f;
-  --ink-muted: #6e6884;
-  --line: #e6e2ee;
-  --line-subtle: #f0edf6;
+  /* Color Palette - High Readability & Unfaded Clarity for Light Mode */
+  --ink: #110e1c;
+  --ink-secondary: #2c273e;
+  --ink-muted: #4e4862;
+  --line: #ded8e8;
+  --line-subtle: #eae5f2;
   --surface: #ffffff;
   --surface-raised: #fbfafc;
-  --bg: #f8f7fb;
+  --bg: #f7f6fa;
 
   /* Brand Accents */
   --purple: #6e56cf;
@@ -411,20 +411,112 @@ body.dark-mode .settings-item small {
 }
 
 body.dark-mode .guide-pillar,
-body.dark-mode .helpline-card {
-  background: var(--surface-raised);
-  border-color: var(--line);
+body.dark-mode .helpline-card,
+body.dark-mode .crisis-resource-card {
+  background: var(--surface-raised) !important;
+  border-color: var(--line) !important;
 }
 body.dark-mode .guide-pillar b,
-body.dark-mode .helpline-card b {
-  color: #ffffff;
+body.dark-mode .helpline-card b,
+body.dark-mode .crisis-resource-card b {
+  color: #ffffff !important;
 }
 body.dark-mode .guide-pillar p,
-body.dark-mode .helpline-card p {
-  color: #c7c0df;
+body.dark-mode .helpline-card p,
+body.dark-mode .crisis-resource-card p {
+  color: #c7c0df !important;
 }
 body.dark-mode .helpline-number {
   color: #6ee7b7;
+}
+body.dark-mode .crisis-badge {
+  background: #2b2349 !important;
+  color: #c4b5fd !important;
+}
+
+/* Dark mode notes & cards (eliminates accidental light background bleed) */
+body.dark-mode .support-note,
+body.dark-mode .measure-note,
+body.dark-mode .connect-note {
+  background: #1c182e !important;
+  border-color: #383056 !important;
+}
+body.dark-mode .support-note b,
+body.dark-mode .measure-note b,
+body.dark-mode .connect-note b {
+  color: #ffffff !important;
+}
+body.dark-mode .support-note p,
+body.dark-mode .measure-note p,
+body.dark-mode .connect-note p {
+  color: #d1cbe5 !important;
+}
+body.dark-mode .support-note svg {
+  color: #a78bfa !important;
+}
+body.dark-mode .support-note .outline-button {
+  background: #25203d !important;
+  color: #ffffff !important;
+  border-color: #4b4170 !important;
+}
+body.dark-mode .support-note .outline-button:hover {
+  background: var(--purple) !important;
+  border-color: var(--purple) !important;
+}
+
+/* Meet Companion Banner in Dark Mode */
+body.dark-mode .meet-companion-card {
+  background: #12281a !important;
+  border-color: #1f4d30 !important;
+}
+body.dark-mode .meet-companion-card b {
+  color: #86efac !important;
+}
+body.dark-mode .meet-companion-card p {
+  color: #dcfce7 !important;
+}
+body.dark-mode .meet-companion-card .outline-button {
+  background: #193824 !important;
+  color: #ffffff !important;
+  border-color: #2b613e !important;
+}
+
+/* Invite Banner in Dark Mode */
+body.dark-mode .invite-banner {
+  background: #1c1830 !important;
+  border-color: #383058 !important;
+}
+body.dark-mode .invite-banner b {
+  color: #ffffff !important;
+}
+body.dark-mode .invite-banner span {
+  color: #c4bcd8 !important;
+}
+
+/* Google Meet button & badges in dark mode */
+body.dark-mode .google-meet-btn {
+  background: #12281a !important;
+  border-color: #1f4d30 !important;
+  color: #6ee7b7 !important;
+}
+body.dark-mode .google-meet-btn:hover {
+  background: #1a3c27 !important;
+  border-color: #34d399 !important;
+}
+body.dark-mode .meet-card-btn {
+  background: #12281a !important;
+  border-color: #1f4d30 !important;
+  color: #6ee7b7 !important;
+}
+body.dark-mode .meet-card-btn:hover {
+  background: #1a3c27 !important;
+  border-color: #34d399 !important;
+}
+
+/* In-Call Chat message in Dark Mode */
+body.dark-mode .chat-msg.theirs {
+  background: #282344 !important;
+  color: #f3f0ff !important;
 }
 
 body.dark-mode .call-modal {
@@ -509,8 +601,20 @@ body {
   background: var(--bg);
   font-size: 14px;
   line-height: 1.6;
+  font-weight: 450;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+p {
+  color: var(--ink-secondary);
+  font-weight: 450;
+}
+
+b, strong {
+  color: var(--ink);
+  font-weight: 700;
 }
 
 button {
@@ -1675,8 +1779,20 @@ input:focus-visible {
 }
 
 .support-note {
-  background: #f7f4fc;
-  border-color: #ebe4f6;
+  background: var(--purple-light);
+  border: 1.5px solid #ded5f2;
+}
+
+.support-note b {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.support-note p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-secondary);
 }
 
 .support-note svg {
@@ -2531,20 +2647,45 @@ input:focus-visible {
   border-radius: 14px;
   background: var(--surface-raised);
   margin-bottom: 14px;
+  transition: all 0.15s ease;
+}
+
+.crisis-resource-card:hover {
+  border-color: var(--purple);
+  box-shadow: var(--shadow-sm);
 }
 
 .crisis-resource-card b {
-  font-size: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
   color: var(--ink);
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crisis-badge {
+  font-size: 11px;
+  background: var(--purple-light);
+  color: var(--purple);
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-weight: 700;
 }
 
 .crisis-resource-card p {
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.6;
   color: var(--ink-secondary);
-  margin: 6px 0 10px;
+  margin: 6px 0 12px;
+}
+
+.crisis-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .crisis-contact-action {
@@ -2564,6 +2705,169 @@ input:focus-visible {
 .crisis-contact-action:hover {
   background: var(--purple-hover);
   transform: translateY(-1px);
+}
+
+/* Call Choice Modal options */
+.call-choice-card {
+  padding: 18px 20px;
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.18s ease;
+  border: 2px solid transparent;
+}
+
+.call-choice-card.presence-choice {
+  border-color: var(--purple);
+  background: var(--purple-light);
+}
+
+.call-choice-card.presence-choice:hover {
+  background: var(--purple-subtle);
+  transform: translateY(-1px);
+}
+
+.call-choice-card.presence-choice .choice-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--purple);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.call-choice-card.presence-choice b {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.call-choice-card.presence-choice .choice-badge {
+  font-size: 11px;
+  background: #ede9fe;
+  color: var(--purple);
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 700;
+}
+
+.call-choice-card.presence-choice .choice-desc {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-secondary);
+  margin-top: 4px;
+}
+
+.call-choice-card.presence-choice .choice-arrow {
+  color: var(--purple);
+}
+
+.call-choice-card.meet-choice {
+  border-color: #d3e2d6;
+  background: #f8fdf9;
+}
+
+.call-choice-card.meet-choice:hover {
+  background: #f0faf2;
+  border-color: #137333;
+  transform: translateY(-1px);
+}
+
+.call-choice-card.meet-choice .choice-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #c7e0cd;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.call-choice-card.meet-choice b {
+  font-size: 15px;
+  color: #137333;
+}
+
+.call-choice-card.meet-choice .choice-badge {
+  font-size: 11px;
+  background: #e6f4ea;
+  color: #137333;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 700;
+}
+
+.call-choice-card.meet-choice .choice-desc {
+  display: block;
+  font-size: 13px;
+  color: #274e2d;
+  margin-top: 4px;
+}
+
+.call-choice-card.meet-choice .choice-arrow {
+  color: #137333;
+}
+
+/* Call choice dark mode */
+body.dark-mode .call-choice-card.presence-choice {
+  background: #25203d;
+  border-color: #554499;
+}
+
+body.dark-mode .call-choice-card.presence-choice:hover {
+  background: #2e284c;
+}
+
+body.dark-mode .call-choice-card.presence-choice b {
+  color: #ffffff;
+}
+
+body.dark-mode .call-choice-card.presence-choice .choice-badge {
+  background: #372f5c;
+  color: #d6ccff;
+}
+
+body.dark-mode .call-choice-card.presence-choice .choice-desc {
+  color: #d1cbe5;
+}
+
+body.dark-mode .call-choice-card.presence-choice .choice-arrow {
+  color: #a78bfa;
+}
+
+body.dark-mode .call-choice-card.meet-choice {
+  background: #14281c;
+  border-color: #1f5032;
+}
+
+body.dark-mode .call-choice-card.meet-choice:hover {
+  background: #1a3525;
+}
+
+body.dark-mode .call-choice-card.meet-choice .choice-icon {
+  background: #1b3525;
+  border-color: #285d3b;
+}
+
+body.dark-mode .call-choice-card.meet-choice b {
+  color: #86efac;
+}
+
+body.dark-mode .call-choice-card.meet-choice .choice-badge {
+  background: #1e452e;
+  color: #a7f3d0;
+}
+
+body.dark-mode .call-choice-card.meet-choice .choice-desc {
+  color: #bbf7d0;
+}
+
+body.dark-mode .call-choice-card.meet-choice .choice-arrow {
+  color: #86efac;
 }
 
 /* In-Call Enhancements */
