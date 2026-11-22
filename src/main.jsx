@@ -110,6 +110,14 @@ function playGentleChime(freq = 528) {
   } catch {}
 }
 
+// Universally compatible unique ID generator (safe across non-secure webviews & mobile browsers)
+function uid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+}
+
 const defaultContacts = [];
 
 const connectionPrompts = [
@@ -134,7 +142,9 @@ function App() {
   const showCrisis = modalState.matches(MODAL_STATES.CRISIS);
   const showConnectionForm = modalState.matches(MODAL_STATES.ADD_CONNECTION);
   const editingContact = modalState.matches(MODAL_STATES.EDIT_CONNECTION) ? modalState.context.targetPerson : null;
-  const callChoiceTarget = modalState.matches(MODAL_STATES.CALL_CHOICE) ? modalState.context.targetPerson : null;
+  const callChoiceTarget = modalState.matches(MODAL_STATES.CALL_CHOICE)
+    ? (modalState.context.targetPerson || { name: 'A connection', relation: '1:1 presence call' })
+    : null;
 
   const closeModal = () => sendModal({ type: MODAL_EVENTS.CLOSE });
   const openSettings = () => sendModal({ type: MODAL_EVENTS.OPEN_SETTINGS });
@@ -142,7 +152,10 @@ function App() {
   const openCrisis = () => sendModal({ type: MODAL_EVENTS.OPEN_CRISIS });
   const openAddConnection = () => sendModal({ type: MODAL_EVENTS.OPEN_ADD_CONNECTION });
   const openEditConnection = (contact) => sendModal({ type: MODAL_EVENTS.OPEN_EDIT_CONNECTION, contact });
-  const openCallChoice = (person) => sendModal({ type: MODAL_EVENTS.OPEN_CALL_CHOICE, person });
+  const openCallChoice = (person) => {
+    const target = person || (connections.length > 0 ? connections[0] : { name: 'A connection', relation: '1:1 presence call' });
+    sendModal({ type: MODAL_EVENTS.OPEN_CALL_CHOICE, person: target });
+  };
 
   const [wellbeingTab, setWellbeingTab] = useState('pause');
 
@@ -267,7 +280,8 @@ function App() {
         .toUpperCase();
     setInviteRoom('');
     closeModal();
-    setCall({ ...person, displayName: displayName || profile.name, room: roomCode, role: room ? 'guest' : 'host' });
+    const safePerson = person || { name: 'A connection', relation: '1:1 presence call' };
+    setCall({ ...safePerson, displayName: displayName || profile.name, room: roomCode, role: room ? 'guest' : 'host' });
   };
 
   // Launch Google Meet
@@ -816,19 +830,15 @@ function NavItem({ icon, label, active, onClick, badge }) {
 
 // Call Choice Modal: Allows seamlessly choosing between Saantvana Presence and Google Meet
 function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelectGoogleMeet }) {
-  const targetName = person?.name || 'A Connection';
-  const isStaticHost = typeof window !== 'undefined' && (
-    window.location.hostname.endsWith('github.io') ||
-    window.location.hostname.endsWith('pages.dev')
-  );
-  const hasCustomSignal = Boolean(profile?.signalUrl?.trim() || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL));
+  const isGeneric = !person?.name || person?.name.toLowerCase() === 'a connection';
+  const targetName = isGeneric ? 'A connection' : person.name;
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="form-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="call-choice-title">
         <div className="call-top">
           <div>
-            <span className="call-status">CONNECT {person?.name ? `WITH ${person.name.toUpperCase()}` : 'PRIVATELY'}</span>
+            <span className="call-status">CONNECT {!isGeneric ? `WITH ${targetName.toUpperCase()}` : 'PRIVATELY'}</span>
             <h2 id="call-choice-title">Choose how you'd like to call</h2>
           </div>
           <button className="icon-button" aria-label="Close" onClick={onClose}>
@@ -837,7 +847,7 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
         </div>
 
         <p className="form-intro">
-          Connect {person?.name ? <>with <b>{person.name}</b></> : 'with someone you trust'} in a calm private presence space, or jump straight into Google Meet.
+          {!isGeneric ? <>Connect with <b>{targetName}</b> in a calm private presence space, or jump straight into Google Meet.</> : 'Connect with someone you trust in a calm private presence space, or jump straight into Google Meet.'}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1361,7 +1371,7 @@ function WellbeingPage({
     const text = reflectionText.trim();
     if (!text) return;
     const item = {
-      id: crypto.randomUUID(),
+      id: uid(),
       text,
       date: new Date().toLocaleDateString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
@@ -1748,13 +1758,12 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
         sendCall({ type: CALL_EVENTS.LOCAL_STREAM_ACQUIRED, stream });
 
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const isStaticHost = typeof window !== 'undefined' && (
-          window.location.hostname.endsWith('github.io') ||
-          window.location.hostname.endsWith('pages.dev')
-        );
-        const defaultSignalUrl = isStaticHost
-          ? 'wss://saantvana.onrender.com/signal'
-          : `${protocol}//${location.host}/signal`;
+        const isRenderHost = typeof window !== 'undefined' && window.location.hostname.endsWith('onrender.com');
+        const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        // Any static deployment (GitHub Pages at hareramkushwaha.com.np or ha-re-ram.github.io, etc.) connects to Render signaling by default
+        const defaultSignalUrl = (isRenderHost || isLocalHost)
+          ? `${protocol}//${location.host}/signal`
+          : 'wss://saantvana.onrender.com/signal';
         const signalUrl = (profile?.signalUrl && profile.signalUrl.trim()) ||
                           (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL) ||
                           defaultSignalUrl;
@@ -1864,7 +1873,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
           // Live In-Call Messaging
           if (message.type === 'chat' && message.text) {
-            setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), sender: 'theirs', text: message.text }]);
+            setChatMessages((prev) => [...prev, { id: uid(), sender: 'theirs', text: message.text }]);
           }
 
           // Live In-Call Floating Reactions
@@ -1985,13 +1994,13 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: 'chat', text: clean }));
     }
-    setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), sender: 'mine', text: clean }]);
+    setChatMessages((prev) => [...prev, { id: uid(), sender: 'mine', text: clean }]);
     setChatInput('');
   };
 
   // Floating Reactions
   const triggerFloatingReaction = (emoji) => {
-    const id = crypto.randomUUID();
+    const id = uid();
     const x = Math.floor(Math.random() * 60) + 20;
     setFloatingReactions((prev) => [...prev, { id, emoji, x }]);
     window.setTimeout(() => {
@@ -2299,9 +2308,9 @@ function ConnectionFormModal({ onClose, onSave }) {
     event.preventDefault();
     const clean = name.trim();
     if (!clean) return;
-    const initials = clean.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+    const initials = clean.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'C';
     onSave({
-      id: crypto.randomUUID(),
+      id: uid(),
       name: clean,
       group,
       relation: relation.trim() || (group === 'Community' ? 'Community connection' : group === 'Family' ? 'Family member' : 'Friend'),

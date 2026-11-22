@@ -19,6 +19,11 @@ const vite = production ? null : await (await import('vite')).createServer({
 });
 
 const server = createServer(async (req, res) => {
+  if (req.url === '/health' || req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({ status: 'healthy', time: new Date().toISOString() }));
+    return;
+  }
   if (!production) return vite.middlewares(req, res, () => { res.statusCode = 404; res.end('Not found'); });
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -27,7 +32,12 @@ const server = createServer(async (req, res) => {
     try { if (!(await stat(file)).isFile()) file = join(file, 'index.html'); }
     catch { file = join(dist, 'index.html'); }
     const info = await stat(file);
-    res.writeHead(200, { 'Content-Type': contentTypes[extname(file)] || 'application/octet-stream', 'Content-Length': info.size, 'Cache-Control': extname(file) === '.html' ? 'no-cache' : 'public, max-age=3600' });
+    res.writeHead(200, {
+      'Content-Type': contentTypes[extname(file)] || 'application/octet-stream',
+      'Content-Length': info.size,
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': extname(file) === '.html' ? 'no-cache' : 'public, max-age=3600'
+    });
     createReadStream(file).pipe(res);
   } catch {
     res.writeHead(500); res.end('Could not serve the app.');
@@ -41,6 +51,8 @@ const isAllowedOrigin = (originHost, reqHost) => {
     originHost.endsWith('github.io') ||
     originHost.endsWith('pages.dev') ||
     originHost.endsWith('onrender.com') ||
+    originHost.includes('hareramkushwaha.com.np') ||
+    originHost.endsWith('.np') ||
     originHost.includes('localhost') ||
     originHost.includes('127.0.0.1')
   );

@@ -396,6 +396,16 @@ test('modalMachine: single-dialog overlay coordination without collision', () =>
   assert.equal(s.value, MODAL_STATES.EDIT_CONNECTION);
   assert.equal(s.context.targetPerson, mockPerson);
 
+  // Directly transition from Edit Connection to Add Connection without deadlocking
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.OPEN_ADD_CONNECTION });
+  assert.equal(s.value, MODAL_STATES.ADD_CONNECTION);
+
+  // Open Call Choice with undefined person safely falls back to defaultModalPerson
+  s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.OPEN_CALL_CHOICE });
+  assert.equal(s.value, MODAL_STATES.CALL_CHOICE);
+  assert.ok(s.context.targetPerson);
+  assert.equal(s.context.targetPerson.name, 'A connection');
+
   s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.CLOSE });
   assert.equal(s.value, MODAL_STATES.IDLE);
 });

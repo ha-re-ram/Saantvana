@@ -26,104 +26,77 @@ export const initialModalContext = {
   previousModal: null
 };
 
+export const defaultModalPerson = {
+  name: 'A connection',
+  relation: '1:1 presence call'
+};
+
+const modalTransitions = (currentState) => ({
+  [MODAL_EVENTS.CLOSE]: {
+    target: MODAL_STATES.IDLE,
+    actions: () => initialModalContext
+  },
+  [MODAL_EVENTS.OPEN_SETTINGS]: {
+    target: MODAL_STATES.SETTINGS,
+    actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.SETTINGS, targetPerson: null, previousModal: currentState })
+  },
+  [MODAL_EVENTS.OPEN_GUIDE]: {
+    target: MODAL_STATES.GUIDE,
+    actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.GUIDE, targetPerson: null, previousModal: currentState })
+  },
+  [MODAL_EVENTS.OPEN_CRISIS]: {
+    target: MODAL_STATES.CRISIS,
+    actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.CRISIS, previousModal: currentState })
+  },
+  [MODAL_EVENTS.OPEN_ADD_CONNECTION]: {
+    target: MODAL_STATES.ADD_CONNECTION,
+    actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.ADD_CONNECTION, targetPerson: null, previousModal: currentState })
+  },
+  [MODAL_EVENTS.OPEN_EDIT_CONNECTION]: {
+    target: MODAL_STATES.EDIT_CONNECTION,
+    actions: (ctx, evt) => ({
+      ...ctx,
+      activeModal: MODAL_STATES.EDIT_CONNECTION,
+      targetPerson: evt.contact || defaultModalPerson,
+      previousModal: currentState
+    })
+  },
+  [MODAL_EVENTS.OPEN_CALL_CHOICE]: {
+    target: MODAL_STATES.CALL_CHOICE,
+    actions: (ctx, evt) => ({
+      ...ctx,
+      activeModal: MODAL_STATES.CALL_CHOICE,
+      targetPerson: evt.person || defaultModalPerson,
+      previousModal: currentState
+    })
+  }
+});
+
 export const modalMachine = createMachine({
   id: 'modalMachine',
   initial: MODAL_STATES.IDLE,
   context: initialModalContext,
   states: {
     [MODAL_STATES.IDLE]: {
-      on: {
-        [MODAL_EVENTS.OPEN_SETTINGS]: {
-          target: MODAL_STATES.SETTINGS,
-          actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.SETTINGS, previousModal: MODAL_STATES.IDLE })
-        },
-        [MODAL_EVENTS.OPEN_GUIDE]: {
-          target: MODAL_STATES.GUIDE,
-          actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.GUIDE, previousModal: MODAL_STATES.IDLE })
-        },
-        [MODAL_EVENTS.OPEN_CRISIS]: {
-          target: MODAL_STATES.CRISIS,
-          actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.CRISIS, previousModal: MODAL_STATES.IDLE })
-        },
-        [MODAL_EVENTS.OPEN_ADD_CONNECTION]: {
-          target: MODAL_STATES.ADD_CONNECTION,
-          actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.ADD_CONNECTION, previousModal: MODAL_STATES.IDLE })
-        },
-        [MODAL_EVENTS.OPEN_EDIT_CONNECTION]: {
-          target: MODAL_STATES.EDIT_CONNECTION,
-          actions: (ctx, evt) => ({
-            ...ctx,
-            activeModal: MODAL_STATES.EDIT_CONNECTION,
-            targetPerson: evt.contact || null,
-            previousModal: MODAL_STATES.IDLE
-          })
-        },
-        [MODAL_EVENTS.OPEN_CALL_CHOICE]: {
-          target: MODAL_STATES.CALL_CHOICE,
-          actions: (ctx, evt) => ({
-            ...ctx,
-            activeModal: MODAL_STATES.CALL_CHOICE,
-            targetPerson: evt.person || null,
-            previousModal: MODAL_STATES.IDLE
-          })
-        }
-      }
+      on: modalTransitions(MODAL_STATES.IDLE)
     },
     [MODAL_STATES.SETTINGS]: {
-      on: {
-        [MODAL_EVENTS.CLOSE]: {
-          target: MODAL_STATES.IDLE,
-          actions: () => initialModalContext
-        },
-        [MODAL_EVENTS.OPEN_CRISIS]: {
-          target: MODAL_STATES.CRISIS,
-          actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.CRISIS, previousModal: MODAL_STATES.SETTINGS })
-        }
-      }
+      on: modalTransitions(MODAL_STATES.SETTINGS)
     },
     [MODAL_STATES.GUIDE]: {
-      on: {
-        [MODAL_EVENTS.CLOSE]: {
-          target: MODAL_STATES.IDLE,
-          actions: () => initialModalContext
-        },
-        [MODAL_EVENTS.OPEN_CRISIS]: {
-          target: MODAL_STATES.CRISIS,
-          actions: (ctx) => ({ ...ctx, activeModal: MODAL_STATES.CRISIS, previousModal: MODAL_STATES.GUIDE })
-        }
-      }
+      on: modalTransitions(MODAL_STATES.GUIDE)
     },
     [MODAL_STATES.CRISIS]: {
-      on: {
-        [MODAL_EVENTS.CLOSE]: {
-          target: MODAL_STATES.IDLE,
-          actions: () => initialModalContext
-        }
-      }
+      on: modalTransitions(MODAL_STATES.CRISIS)
     },
     [MODAL_STATES.ADD_CONNECTION]: {
-      on: {
-        [MODAL_EVENTS.CLOSE]: {
-          target: MODAL_STATES.IDLE,
-          actions: () => initialModalContext
-        }
-      }
+      on: modalTransitions(MODAL_STATES.ADD_CONNECTION)
     },
     [MODAL_STATES.EDIT_CONNECTION]: {
-      on: {
-        [MODAL_EVENTS.CLOSE]: {
-          target: MODAL_STATES.IDLE,
-          actions: () => initialModalContext
-        }
-      }
+      on: modalTransitions(MODAL_STATES.EDIT_CONNECTION)
     },
     [MODAL_STATES.CALL_CHOICE]: {
-      on: {
-        [MODAL_EVENTS.CLOSE]: {
-          target: MODAL_STATES.IDLE,
-          actions: () => initialModalContext
-        }
-      }
+      on: modalTransitions(MODAL_STATES.CALL_CHOICE)
     }
   }
 });
