@@ -11,13 +11,14 @@ A calm, consent-led connection and wellbeing web application designed to foster 
 
 ## 🌟 Key Highlights
 
-- **Direct Google Meet by Default**: Launch instant, high-definition Google Meet rooms in one click with automated invitation copying, WhatsApp direct sharing, and calm companion mode.
-- **Works Universally on All Networks**: Zero dropped calls or carrier NAT blocks on 5G/4G cellular networks and strict Wi-Fi firewalls.
+- **Direct Google Meet by Default**: Launch instant, crystal-clear Google Meet rooms in one click with automated invitation copying and a calm companion mode.
+- **Works Universally on All Networks**: Zero dropped calls or carrier NAT blocks on 5G/4G cellular networks, satellite internet, and strict Wi-Fi firewalls.
 - **Calm Companion Experience**: Saantvana stays open during and after calls with a session timer, grounding reminders, and mindful pause options.
-- **Mindful Pauses**: Guided breathing exercises with customizable durations (1 min, 2 min, 3 min) and gentle synthesized audio chimes.
+- **Mindful Pauses**: Guided breathing exercises with customizable durations (1 min, 2 min, 3 min) and gentle acoustic Web Audio chimes.
 - **5-4-3-2-1 Sensory Grounding**: Step-by-step somatic sensory grounding tool to reset attention in moments of stress or overwhelm.
-- **Private by Default**: Saved contacts, check-ins, and reflections remain strictly in your device's browser storage (`localStorage`). No tracking or cloud databases.
-- **Responsive Mobile Experience**: Clean bottom navigation bar, dynamic viewport sizing (`100dvh`), and offline app-shell caching.
+- **24/7 Confidential Crisis Helplines**: Dedicated, localized emergency emotional support resources for Nepal, India, North America, the UK, and international directories.
+- **Private by Default**: Saved contacts, check-ins, and reflections remain strictly in your device's browser storage (`localStorage`). No tracking, analytics, or cloud databases.
+- **Responsive Mobile & PWA Experience**: Clean thumb-friendly navigation bar, dynamic viewport sizing (`100dvh`), daylight and calm night themes, and offline app-shell caching.
 
 ---
 

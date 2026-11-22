@@ -32,7 +32,6 @@ import {
   Search,
   Send,
   Settings,
-  Share2,
   ShieldCheck,
   Smile,
   Sparkles,
@@ -135,9 +134,6 @@ function App() {
   const showCrisis = modalState.matches(MODAL_STATES.CRISIS);
   const showConnectionForm = modalState.matches(MODAL_STATES.ADD_CONNECTION);
   const editingContact = modalState.matches(MODAL_STATES.EDIT_CONNECTION) ? modalState.context.targetPerson : null;
-  const callChoiceTarget = modalState.matches(MODAL_STATES.CALL_CHOICE)
-    ? (modalState.context.targetPerson || { name: 'A connection', relation: 'Google Meet call' })
-    : null;
 
   const closeModal = () => sendModal({ type: MODAL_EVENTS.CLOSE });
   const openSettings = () => sendModal({ type: MODAL_EVENTS.OPEN_SETTINGS });
@@ -145,10 +141,6 @@ function App() {
   const openCrisis = () => sendModal({ type: MODAL_EVENTS.OPEN_CRISIS });
   const openAddConnection = () => sendModal({ type: MODAL_EVENTS.OPEN_ADD_CONNECTION });
   const openEditConnection = (contact) => sendModal({ type: MODAL_EVENTS.OPEN_EDIT_CONNECTION, contact });
-  const openCallChoice = (person) => {
-    const target = person || (connections.length > 0 ? connections[0] : { name: 'A connection', relation: 'Google Meet call' });
-    sendModal({ type: MODAL_EVENTS.OPEN_CALL_CHOICE, person: target });
-  };
 
   const [wellbeingTab, setWellbeingTab] = useState('pause');
 
@@ -248,7 +240,7 @@ function App() {
 
   // Notifications
   const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Your space is ready', desc: 'Saantvana is running privately in your browser with Google Meet & direct 1:1 calling.', time: 'Just now', unread: true },
+    { id: 1, title: 'Your space is ready', desc: 'Saantvana is running privately in your browser with Google Meet calling.', time: 'Just now', unread: true },
     { id: 2, title: 'Connection reminder', desc: 'A quick hello or shared presence can mean a lot.', time: '1 hour ago', unread: true },
     { id: 3, title: 'Mindful pause', desc: 'Take a 60-second breathing pause when you need one.', time: 'Today', unread: false }
   ]);
@@ -318,48 +310,6 @@ function App() {
       meetUrl,
       startedAt: new Date()
     });
-  };
-
-  const shareViaWhatsApp = (person, customMeetUrl) => {
-    let meetUrl = 'https://meet.google.com/new';
-    if (customMeetUrl && customMeetUrl.trim()) {
-      const clean = customMeetUrl.trim();
-      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
-    } else if (person && person.meetLink && person.meetLink.trim()) {
-      const clean = person.meetLink.trim();
-      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
-    } else if (profile?.defaultMeetLink && profile.defaultMeetLink.trim()) {
-      const clean = profile.defaultMeetLink.trim();
-      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
-    }
-    const targetName = person?.name && person.name !== 'A connection' ? person.name : 'Friend';
-    const text = encodeURIComponent(`Hi ${targetName}, let's connect on Google Meet: ${meetUrl}`);
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
-    say(`WhatsApp opened with your Google Meet invite.`);
-  };
-
-  const copyMeetInvite = async (person, customMeetUrl) => {
-    let meetUrl = 'https://meet.google.com/new';
-    if (customMeetUrl && customMeetUrl.trim()) {
-      const clean = customMeetUrl.trim();
-      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
-    } else if (person && person.meetLink && person.meetLink.trim()) {
-      const clean = person.meetLink.trim();
-      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
-    } else if (profile?.defaultMeetLink && profile.defaultMeetLink.trim()) {
-      const clean = profile.defaultMeetLink.trim();
-      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
-    }
-    const targetName = person?.name && person.name !== 'A connection' ? person.name : '';
-    const text = targetName
-      ? `Hi ${targetName}, let's meet on Google Meet: ${meetUrl}`
-      : `Join my Google Meet call: ${meetUrl}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      say(`Google Meet invitation copied to clipboard.`);
-    } catch {
-      say(`Could not copy automatically. Link: ${meetUrl}`);
-    }
   };
 
   const addConnection = (contact) => {
@@ -598,6 +548,26 @@ function App() {
                 </button>
                 <button
                   className="outline-button small-btn"
+                  onClick={async () => {
+                    const targetName = activeMeetSession.person?.name && activeMeetSession.person.name !== 'A connection'
+                      ? activeMeetSession.person.name
+                      : '';
+                    const inviteMsg = targetName
+                      ? `Hi ${targetName}, let's meet on Google Meet: ${activeMeetSession.meetUrl}`
+                      : `Join my Google Meet call: ${activeMeetSession.meetUrl}`;
+                    try {
+                      await navigator.clipboard.writeText(inviteMsg);
+                      say('Google Meet invitation copied to clipboard.');
+                    } catch {
+                      say(`Link: ${activeMeetSession.meetUrl}`);
+                    }
+                  }}
+                  title="Copy Google Meet invite message to clipboard"
+                >
+                  <Copy size={14}/> Copy invite
+                </button>
+                <button
+                  className="outline-button small-btn"
                   onClick={() => go('Wellbeing', 'pause')}
                   title="Take a 1-minute calming breath"
                 >
@@ -627,8 +597,7 @@ function App() {
           {page === 'Home' && (
             <HomePage
               profile={profile}
-              onInitiateCall={(person) => openCallChoice(person || connections[0])}
-              onStartGoogleMeet={() => startGoogleMeet()}
+              onStartGoogleMeet={(person) => startGoogleMeet(person)}
               go={go}
               say={say}
               people={connections}
@@ -650,13 +619,11 @@ function App() {
               group={selectedGroup}
               setGroup={setSelectedGroup}
               people={connections}
-              onInitiateCall={(person) => openCallChoice(person)}
               onStartGoogleMeet={(person) => startGoogleMeet(person)}
               say={say}
               onAdd={openAddConnection}
               onEdit={(c) => openEditConnection(c)}
               onRemove={removeConnection}
-              onShare={(person) => openCallChoice(person)}
             />
           )}
 
@@ -692,26 +659,6 @@ function App() {
       </main>
 
       {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)}/>}
-
-      {/* Google Meet Connect & Share Modal */}
-      {callChoiceTarget && (
-        <MeetConnectModal
-          person={callChoiceTarget}
-          profile={profile}
-          onClose={closeModal}
-          onStartMeet={(p, url) => startGoogleMeet(p, url)}
-          onShareWhatsApp={(p, url) => shareViaWhatsApp(p, url)}
-          onCopyInvite={(p, url) => copyMeetInvite(p, url)}
-          onSaveMeetLink={(link) => {
-            if (callChoiceTarget && callChoiceTarget.id) {
-              updateConnection({ ...callChoiceTarget, meetLink: link });
-            } else {
-              saveProfile({ ...profile, defaultMeetLink: link });
-            }
-          }}
-          say={say}
-        />
-      )}
 
       {/* Add Connection Modal */}
       {showConnectionForm && (
@@ -832,152 +779,9 @@ function NavItem({ icon, label, active, onClick, badge }) {
   );
 }
 
-// Google Meet Connect & Share Modal: Instant Room, WhatsApp Sharing, and Calm Presence
-function MeetConnectModal({ person, profile, onClose, onStartMeet, onShareWhatsApp, onCopyInvite, onSaveMeetLink, say }) {
-  const isGeneric = !person?.name || person?.name.toLowerCase() === 'a connection';
-  const targetName = isGeneric ? 'A connection' : person.name;
-  const initialMeetLink = person?.meetLink || profile?.defaultMeetLink || '';
-  const [meetLinkInput, setMeetLinkInput] = useState(initialMeetLink);
-  const [isEditingLink, setIsEditingLink] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const activeUrl = meetLinkInput.trim()
-    ? (meetLinkInput.trim().startsWith('http') ? meetLinkInput.trim() : `https://meet.google.com/${meetLinkInput.trim()}`)
-    : 'https://meet.google.com/new';
-
-  const handleLaunch = () => {
-    onStartMeet(person, activeUrl);
-  };
-
-  const handleWhatsApp = () => {
-    onShareWhatsApp(person, activeUrl);
-  };
-
-  const handleCopy = async () => {
-    await onCopyInvite(person, activeUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2400);
-  };
-
-  const saveLink = (e) => {
-    e.preventDefault();
-    if (onSaveMeetLink) {
-      onSaveMeetLink(meetLinkInput.trim());
-    }
-    setIsEditingLink(false);
-    say?.(`Google Meet link saved for ${targetName}.`);
-  };
-
-  return (
-    <div className="modal-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section className="form-modal meet-connect-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="meet-title">
-        <div className="call-top">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className={`avatar avatar-${person?.color || 'peach'}`} style={{ width: 40, height: 40, fontSize: 16 }}>
-              {person?.initials || 'C'}
-            </div>
-            <div>
-              <span className="call-status">CONNECT {!isGeneric ? `WITH ${targetName.toUpperCase()}` : 'PRIVATELY'}</span>
-              <h2 id="meet-title" style={{ fontSize: '18px', margin: 0 }}>Google Meet Call</h2>
-            </div>
-          </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={20}/>
-          </button>
-        </div>
-
-        <p className="form-intro" style={{ margin: '14px 0 16px' }}>
-          Connect with {!isGeneric ? <b>{targetName}</b> : 'someone you care about'} using Google Meet. Works reliably on any device, 5G/4G cellular network, or Wi-Fi without server drops.
-        </p>
-
-        {/* Meet Link Display & Editor */}
-        <div className="meet-link-box">
-          <div className="meet-link-info">
-            <span className="meet-link-label">MEET ROOM TARGET</span>
-            <span className="meet-link-val">{meetLinkInput.trim() ? activeUrl : 'Instant new room (meet.google.com/new)'}</span>
-          </div>
-          <button
-            type="button"
-            className="text-button"
-            style={{ fontSize: '12px', padding: '4px 8px' }}
-            onClick={() => setIsEditingLink(!isEditingLink)}
-          >
-            {isEditingLink ? 'Done' : 'Change code'}
-          </button>
-        </div>
-
-        {isEditingLink && (
-          <form onSubmit={saveLink} style={{ display: 'flex', gap: 8, marginTop: 8, marginBottom: 12 }}>
-            <input
-              type="text"
-              placeholder="e.g. meet.google.com/abc-defg-hij or code"
-              value={meetLinkInput}
-              onChange={(e) => setMeetLinkInput(e.target.value)}
-              style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}
-            />
-            <button type="submit" className="primary-button" style={{ padding: '8px 14px', fontSize: '13px' }}>
-              Save
-            </button>
-          </form>
-        )}
-
-        {/* Main Action Launchers */}
-        <div className="meet-action-stack">
-          {/* Launch Meet Button */}
-          <button
-            className="google-meet-btn primary-meet meet-hero-btn"
-            onClick={handleLaunch}
-          >
-            <GoogleMeetLogo size={22}/>
-            <span style={{ fontWeight: 700, fontSize: '15px' }}>Start Google Meet Now</span>
-            <ExternalLink size={16} style={{ marginLeft: 'auto', opacity: 0.8 }}/>
-          </button>
-
-          {/* Share via WhatsApp & Copy Row */}
-          <div className="meet-share-row">
-            <button
-              type="button"
-              className="meet-whatsapp-btn"
-              onClick={handleWhatsApp}
-              title="Share invite directly on WhatsApp"
-            >
-              <MessageCircle size={16}/>
-              <span>Share via WhatsApp</span>
-            </button>
-
-            <button
-              type="button"
-              className="outline-button meet-copy-btn"
-              onClick={handleCopy}
-              title="Copy Meet link invitation"
-            >
-              {copied ? <Check size={16} style={{ color: '#16a34a' }}/> : <Copy size={16}/>}
-              <span>{copied ? 'Copied!' : 'Copy Invite'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Mindful Pre-Call Note */}
-        <div className="meet-mindful-box">
-          <Sparkles size={16} style={{ color: '#6e56cf', flexShrink: 0, marginTop: 2 }}/>
-          <div>
-            <b>A moment before you connect</b>
-            <p>Take one deep breath and notice how your body feels. Saantvana will stay open as a quiet companion while you talk.</p>
-          </div>
-        </div>
-
-        <div className="form-actions" style={{ marginTop: 18 }}>
-          <button className="outline-button" onClick={onClose}>Close</button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 // Interactive Home Page with Real Carousel, Live Actions, & Google Meet
 function HomePage({
   profile,
-  onInitiateCall,
   onStartGoogleMeet,
   go,
   say,
@@ -1027,9 +831,6 @@ function HomePage({
               <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onStartGoogleMeet(); }}>
                 <GoogleMeetLogo size={17}/> Instant Google Meet
               </button>
-              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onInitiateCall(people[0]); }}>
-                <Share2 size={17}/> Connect & share invite
-              </button>
               <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onAdd(); }}>
                 <Plus size={17}/> Add connection
               </button>
@@ -1047,7 +848,7 @@ function HomePage({
         </div>
       </section>
 
-      {/* Alive Hero Card with Dual Call Launchers */}
+      {/* Alive Hero Card with Direct Google Meet Launcher */}
       <section className="hero-card">
         <div className="hero-copy">
           <div className="hero-kicker"><span className="live-dot"/> YOUR CONNECTION MOMENT</div>
@@ -1061,9 +862,6 @@ function HomePage({
             >
               <GoogleMeetLogo size={18}/>
               <span>Start Google Meet</span>
-            </button>
-            <button className="outline-button hero-presence-btn" onClick={() => onInitiateCall(people[0])}>
-              <Share2 size={16}/> Connect & Share
             </button>
           </div>
 
@@ -1089,7 +887,7 @@ function HomePage({
         <div>
           <div className="eyebrow">YOUR PEOPLE</div>
           <h3>Keep the connection going</h3>
-          <div className="sample-note">Trusted people stored only on this browser. Connect via Google Meet or private link.</div>
+          <div className="sample-note">Trusted people stored only on this browser. Connect directly via Google Meet.</div>
         </div>
         <button className="text-button" onClick={() => go('Connections')}>
           All connections ({people.length}) <ArrowRight size={16}/>
@@ -1102,7 +900,7 @@ function HomePage({
             <Heart size={28} style={{ color: 'var(--purple)', opacity: 0.85 }}/>
             <div>
               <b>No connections yet</b>
-              <p>Add friends, family, or trusted peers to connect via Google Meet or private video.</p>
+              <p>Add friends, family, or trusted peers to connect via Google Meet.</p>
             </div>
             <button className="primary-button" onClick={onAdd} style={{ marginTop: 6 }}>
               <Plus size={16}/> Add a connection
@@ -1113,7 +911,6 @@ function HomePage({
             <PersonCard
               key={p.id || p.name}
               person={p}
-              onInitiateCall={onInitiateCall}
               onStartGoogleMeet={onStartGoogleMeet}
               say={say}
               onRemove={onRemove}
@@ -1217,7 +1014,7 @@ function HomePage({
   );
 }
 
-function PersonCard({ person, onInitiateCall, onStartGoogleMeet, say, onRemove }) {
+function PersonCard({ person, onStartGoogleMeet, say, onRemove }) {
   return (
     <article className="person-card">
       <div className={`avatar avatar-${person.color || 'peach'}`}>{person.initials}</div>
@@ -1237,14 +1034,6 @@ function PersonCard({ person, onInitiateCall, onStartGoogleMeet, say, onRemove }
           <span className="meet-card-text">Meet</span>
         </button>
         <button
-          className="outline-button person-share-btn"
-          aria-label={`Share Meet invitation with ${person.name}`}
-          onClick={() => onInitiateCall?.(person)}
-          title="Share Meet invite via WhatsApp or copy link"
-        >
-          <Share2 size={15}/>
-        </button>
-        <button
           className="person-more"
           aria-label={`Remove ${person.name}`}
           onClick={() => onRemove?.(person)}
@@ -1257,8 +1046,8 @@ function PersonCard({ person, onInitiateCall, onStartGoogleMeet, say, onRemove }
   );
 }
 
-// Real Connections Page with Live Search, Filter, Google Meet, and Direct Sharing
-function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogleMeet, say, onAdd, onEdit, onRemove, onShare }) {
+// Real Connections Page with Live Search, Filter, and Direct Google Meet
+function ConnectionsPage({ group, setGroup, people, onStartGoogleMeet, say, onAdd, onEdit, onRemove }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filtered = useMemo(() => {
@@ -1284,7 +1073,7 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
         <input
           type="search"
           className="search-input"
-          placeholder="Search by name or relationship (e.g. Friend, Brother)..."
+          placeholder="Search by name or relationship..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -1341,14 +1130,6 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
 
                 <button
                   className="outline-button"
-                  onClick={() => onShare(p)}
-                  title="Share Meet invitation via WhatsApp or Link"
-                >
-                  <Share2 size={15}/> <span>Share</span>
-                </button>
-
-                <button
-                  className="outline-button"
                   onClick={() => onEdit(p)}
                   title="Edit connection details"
                 >
@@ -1377,7 +1158,7 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
       </div>
 
       <footer className="disclaimer">
-        <ShieldCheck size={16}/> Added names stay in this browser. Calls share a room link; nothing is synced to external servers.
+        <ShieldCheck size={16}/> Added connections stay in this browser. Calls launch securely via Google Meet; zero tracking or cloud sync.
       </footer>
     </>
   );
@@ -1800,7 +1581,7 @@ function ConnectionFormModal({ onClose, onSave }) {
             required
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Jamie Miller"
+            placeholder="Enter name"
           />
 
           <label htmlFor="contact-relation">Relationship / Note</label>
@@ -1809,7 +1590,7 @@ function ConnectionFormModal({ onClose, onSave }) {
             maxLength={48}
             value={relation}
             onChange={(event) => setRelation(event.target.value)}
-            placeholder="e.g. Childhood friend, Mentor, Sister"
+            placeholder="Enter relationship (e.g. Friend, Family, Colleague)"
           />
 
           <label htmlFor="contact-meet">Google Meet code or link (optional)</label>
@@ -1818,7 +1599,7 @@ function ConnectionFormModal({ onClose, onSave }) {
             maxLength={120}
             value={meetLink}
             onChange={(event) => setMeetLink(event.target.value)}
-            placeholder="e.g. meet.google.com/abc-defg-hij"
+            placeholder="Enter Google Meet link (optional)"
           />
 
           <label htmlFor="contact-group">Connection group</label>
@@ -1924,7 +1705,7 @@ function EditConnectionModal({ contact, onClose, onSave, onDelete }) {
             maxLength={120}
             value={meetLink}
             onChange={(event) => setMeetLink(event.target.value)}
-            placeholder="e.g. meet.google.com/abc-defg-hij"
+            placeholder="Enter Google Meet link (optional)"
           />
 
           <label htmlFor="edit-group">Connection group</label>
@@ -2019,10 +1800,10 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
               id="prof-name"
               maxLength={48}
               value={name}
-              placeholder="e.g. Alex Morgan"
+              placeholder="Enter your name"
               onChange={(e) => setName(e.target.value)}
             />
-            <small>Used when sharing meeting invitations and greeting you in your space.</small>
+            <small>Used when greeting you in your space and generating personal notes.</small>
           </div>
 
           <div className="settings-item">
@@ -2031,7 +1812,7 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
               id="prof-space"
               maxLength={48}
               value={space}
-              placeholder="e.g. Personal wellbeing"
+              placeholder="Enter space name (e.g. My space)"
               onChange={(e) => setSpace(e.target.value)}
             />
           </div>
@@ -2075,7 +1856,7 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
             <label htmlFor="prof-meet">Default Personal Google Meet Link (Optional)</label>
             <input
               id="prof-meet"
-              placeholder="e.g. meet.google.com/abc-defg-hij or your personal room"
+              placeholder="Enter default Google Meet link (optional)"
               value={defaultMeetLink}
               onChange={(e) => setDefaultMeetLink(e.target.value)}
             />
@@ -2161,10 +1942,10 @@ function HowItWorksModal({ onClose }) {
             <span className="guide-badge"><Video size={15}/> Google Meet Integration</span>
             <h3>Crystal-Clear, Reliable Video Calling</h3>
             <p>Saantvana uses Google Meet as its primary calling engine for effortless, reliable communication:</p>
-            <p><b>1. Instant 1-Click Rooms:</b> Generate a brand new, private Google Meet room instantly or save custom recurring links for your trusted contacts.</p>
-            <p><b>2. 1-Tap Sharing via WhatsApp & Link:</b> Send an invite directly to your contact over WhatsApp or copy the invitation message in one click.</p>
-            <p><b>3. Cellular & 5G/4G Reliability:</b> Google Meet handles carrier NAT traversal, adaptive bitrates, AI background noise removal, and crystal-clear screen sharing across Android, iOS, Windows, Mac, and Linux.</p>
-            <p><b>4. Calm Companion Mode:</b> While you talk, Saantvana stays open as a peaceful space for pre-call grounding and post-call reflection.</p>
+            <p><b>1. Instant 1-Click Rooms:</b> Generate a brand new, private Google Meet room instantly or save custom links for your trusted contacts.</p>
+            <p><b>2. Automatic Invite Copying:</b> Saantvana opens Google Meet in a new tab and automatically copies the join note to your clipboard, ready to send anywhere.</p>
+            <p><b>3. 5G/4G & Cellular Reliability:</b> Google Meet handles carrier NAT traversal, adaptive bitrates, AI background noise removal, and crystal-clear screen sharing across Android, iOS, Windows, Mac, and Linux.</p>
+            <p><b>4. Calm Companion Mode:</b> While you talk, Saantvana stays open as a peaceful space with a live call timer, mindful breathing pauses, and 5-4-3-2-1 sensory grounding.</p>
           </div>
         )}
 

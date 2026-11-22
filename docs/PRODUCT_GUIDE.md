@@ -18,18 +18,20 @@ This guide turns the concept into a working first-release web app. The attached 
 ## 3. Intended users and needs
 People who feel isolated and want a warmer way to connect with friends, family, peers, or a support professional. The app should help them start a conversation without implying that loneliness is their fault or that an app replaces professional care.
 
-## 4. Working MVP scope
+## 4. Working Scope
 ### Included
 - Responsive Home, Connections, and Wellbeing views, with editable local connections and group filters.
-- One-to-one browser video and audio calls. A caller creates a private room and shares a link; one other participant can join. Microphone, camera, and end-call controls operate on the actual media tracks.
-- The Node signaling service exchanges WebRTC connection setup messages. Call media is peer-to-peer when possible and is not recorded or passed through this service. STUN assists connectivity; restrictive networks may require a TURN service.
-- Optional monocular depth estimation of the remote video. The video sender must approve each request and can revoke it at any time. The model is downloaded on first use from Hugging Face and runs in the viewing participant's browser with WebGPU where supported, otherwise WebAssembly. Video frames used for depth inference remain on that device. The effect is a depth-layer ambience, not stereoscopic 3D, AR, or VR.
-- Optional local check-in controls, a reflective prompt, and a guided pause. Free-text reflections are not stored or transmitted.
-- Installable PWA shell with manifest, icon, service worker, offline app-shell caching, and shareable invite URLs.
+- Seamless Google Meet calling: 1-click room creation, automated invite link copying, custom recurring room links per contact, and a live companion mode with session timer and somatic tools.
+- Works reliably on all carrier networks (5G/4G/3G/Wi-Fi) without symmetric NAT carrier blocks or dropped streams.
+- Somatic wellbeing suite: guided breathing exercises with customizable durations (1, 2, 3 min) and gentle acoustic Web Audio chimes; 5-4-3-2-1 sensory grounding progression.
+- Local reflections: private, un-scored note-taking stored strictly on the local device (`localStorage`).
+- Multi-region 24/7 crisis support: emergency mental health numbers for Nepal (1166, TUTH, KOSHISH), India (Tele-MANAS 14416, Vandrevala, KIRAN), US/Canada (988), UK (116 123), and International directories (Befrienders).
+- Installable PWA shell with manifest, service worker, offline app-shell caching, and responsive light/dark themes.
 
-### Later work
-- User accounts, contact discovery/sync, messaging, multi-person calls, production TURN infrastructure, call invitations/notifications, robust model hosting and offline model packaging, AR/VR, and professional care workflows.
-- UCLA Loneliness Scale administration or scoring. The concept's “50% reduction” figure is an aspiration in the source, not a validated result or app claim.
+### Principles
+- Zero mock contacts in default production storage (`defaultContacts = []`).
+- Zero telemetry, tracking, or cloud databases. All user data stays on device.
+- Neutral, assistive form placeholders that never assume user or contact names.
 
 ## 5. UX and visual direction
 - Warm, quiet, optimistic interface; deep ink text, soft lavender/blue surfaces, restrained coral accent, generous whitespace, rounded cards.

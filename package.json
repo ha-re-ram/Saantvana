@@ -2,20 +2,19 @@
   "name": "saantvana-pwa",
   "private": true,
   "version": "1.0.0",
-  "description": "A calm, consent-led connection and wellbeing web app featuring private 1:1 presence video calls, screen sharing, Google Meet integration, and mindful breathing pauses.",
+  "description": "A calm, consent-led connection and wellbeing web app featuring seamless Google Meet calling with companion mode, 5-4-3-2-1 somatic grounding, and mindful breathing pauses.",
   "type": "module",
   "author": "Hareram Kushwaha <hareramkushwaha054@gmail.com> (https://github.com/ha-re-ram)",
-  "homepage": "https://saantvana.onrender.com/",
+  "homepage": "https://hareramkushwaha.com.np/Saantvana/",
   "repository": {
     "type": "git",
     "url": "https://github.com/ha-re-ram/Saantvana.git"
   },
   "license": "MIT",
   "keywords": [
-    "webrtc",
-    "video-calls",
     "google-meet",
     "wellbeing",
+    "somatic-grounding",
     "pwa",
     "mindfulness",
     "fsm",
