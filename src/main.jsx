@@ -362,6 +362,26 @@ function App() {
     }
   };
 
+  const addConnection = (contact) => {
+    const next = [contact, ...connections];
+    saveConnections(next);
+    closeModal();
+    say(`${contact.name} added to your connections.`);
+  };
+
+  const updateConnection = (updated) => {
+    const next = connections.map((c) => (c.id === updated.id ? updated : c));
+    saveConnections(next);
+    closeModal();
+    say(`${updated.name} updated.`);
+  };
+
+  const removeConnection = (contact) => {
+    const next = connections.filter((item) => item.id !== contact.id);
+    saveConnections(next);
+    say(`${contact.name} was removed.`);
+  };
+
   const go = (name, targetTab = 'pause') => {
     setPage(name);
     if (name === 'Wellbeing') {
