@@ -13,8 +13,7 @@ A calm, consent-led connection and wellbeing web application designed to foster 
 
 - **Direct Google Meet by Default**: Launch instant, high-definition Google Meet rooms in one click with automated invitation copying and calm companion mode.
 - **Private 1:1 Video Calls**: Direct peer-to-peer WebRTC video and audio calls with STUN assistance, in-call chat, screen sharing, and live reactions.
-- **On-Device Depth View**: Optional subtle depth-layer effect rendered locally using client-side Transformers.js. Video frames are never uploaded to cloud inference servers.
-- **Strict Two-Party Consent**: Depth view requires explicit remote participant approval and can be revoked at any moment.
+- **Aspect-Preserving Screen Sharing**: Crisp screen sharing that never crops or trims edges, ensuring code, slides, and documents remain 100% visible.
 - **Mindful Pauses**: Guided breathing exercises with customizable durations (1 min, 2 min, 3 min) and gentle synthesized audio chimes.
 - **5-4-3-2-1 Sensory Grounding**: Step-by-step grounding tool to reset attention in moments of overwhelm.
 - **Private by Default**: Saved contacts, check-ins, and reflections remain strictly in your device's browser storage (`localStorage`). No tracking or cloud databases.
@@ -71,10 +70,10 @@ Saantvana eliminates implicit states and race conditions using deterministic, ze
 
 1. **Call Session Machine (`callMachine.js`)**:
    `IDLE` ➔ `REQUESTING_MEDIA` ➔ `CONNECTING_SIGNAL` ➔ `ROOM_READY` ➔ `NEGOTIATING` ➔ `CONNECTED` ➔ `PEER_LEFT` ➔ `ENDED` (with structured `ERROR` recovery).
-2. **On-Device Depth & Two-Party Consent Machine (`depthMachine.js`)**:
-   Decouples the Viewer Pipeline (`DISABLED` ➔ `IDLE` ➔ `REQUESTING` ➔ `APPROVED` ➔ `LOADING_MODEL` ➔ `ACTIVE` / `PAUSED` / `REVOKED`) from the Consent Provider Pipeline (`IDLE` ➔ `PROMPTED` ➔ `GRANTED` / `DECLINED`).
-3. **Mindful Breathing Machine (`breathingMachine.js`)**:
+2. **Mindful Breathing Machine (`breathingMachine.js`)**:
    Orchestrates 14-second therapeutic cycles (`INHALING` 4s ➔ `HOLDING` 7s ➔ `EXHALING` 3s) with pause/resume support and audio chimes.
+3. **Sensory Grounding Machine (`groundingMachine.js`)**:
+   Orchestrates 5-4-3-2-1 somatic sensory steps progression with calm resets.
 
 ---
 
@@ -83,7 +82,6 @@ Saantvana eliminates implicit states and race conditions using deterministic, ze
 - **Client**: React 19, Vite, Lucide Icons
 - **Signaling Server**: Node.js, WebSockets (`ws`)
 - **State Orchestration**: Deterministic Finite State Machines (`src/machines/`)
-- **Inference**: `@huggingface/transformers` (`depth-anything-small-hf` with WebGPU / WASM execution)
 - **Styling**: Pure responsive CSS with custom properties and daylight / calm night modes
 
 ---

@@ -56,13 +56,6 @@ import {
   getBreathingView
 } from './machines/breathingMachine.js';
 import {
-  depthMachine,
-  VIEWER_STATES,
-  CONSENT_STATES,
-  DEPTH_EVENTS,
-  initialDepthContext
-} from './machines/depthMachine.js';
-import {
   callMachine,
   CALL_EVENTS,
   initialCallContext
@@ -217,7 +210,7 @@ function App() {
 
   // Notifications
   const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Your space is ready', desc: 'Saantvana is running privately in your browser with Google Meet & 3D Depth support.', time: 'Just now', unread: true },
+    { id: 1, title: 'Your space is ready', desc: 'Saantvana is running privately in your browser with Google Meet & direct 1:1 calling.', time: 'Just now', unread: true },
     { id: 2, title: 'Connection reminder', desc: 'A quick hello or shared presence can mean a lot.', time: '1 hour ago', unread: true },
     { id: 3, title: 'Mindful pause', desc: 'Take a 60-second breathing pause when you need one.', time: 'Today', unread: false }
   ]);
@@ -243,7 +236,7 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Launch Saantvana Depth Call
+  // Launch Saantvana Presence Call
   const startSaantvanaCall = (person, room = '', displayName = profile.name) => {
     const roomCode =
       room ||
@@ -699,7 +692,7 @@ function App() {
         <CrisisModal onClose={closeModal}/>
       )}
 
-      {/* Saantvana WebRTC 1:1 Video Call Modal with On-Device Depth */}
+      {/* Saantvana WebRTC 1:1 Video Call Modal */}
       {call && (
         <CallModal
           person={call}
@@ -831,11 +824,11 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <b style={{ fontSize: 15, color: 'var(--ink)' }}>Saantvana Presence Call</b>
                 <span style={{ fontSize: 11, background: '#ede9fe', color: 'var(--purple)', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
-                  WebRTC P2P · Depth View
+                  WebRTC 1:1 · Direct Private Call
                 </span>
               </div>
               <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-secondary)', marginTop: 4 }}>
-                Private 1:1 connection · On-device depth ambience · Zero cloud recording
+                Private 1:1 connection · Direct WebRTC video & screen sharing · Zero cloud recording
               </span>
             </div>
             <ArrowRight size={18} style={{ color: 'var(--purple)' }}/>
@@ -951,7 +944,7 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
         <div className="hero-copy">
           <div className="hero-kicker"><span className="live-dot"/> YOUR CONNECTION MOMENT</div>
           <h2>Presence is a gift<br/>you can share.</h2>
-          <p>Make a little room for someone you care about. Choose an immersive depth call or jump into Google Meet.</p>
+          <p>Make a little room for someone you care about. Choose a private 1:1 call or jump into Google Meet.</p>
 
           <div className="hero-actions">
             <button
@@ -967,7 +960,7 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
           </div>
 
           <div className="hero-caption">
-            <ShieldCheck size={16}/> Direct Google Meet enabled · Private 1:1 presence & depth available
+            <ShieldCheck size={16}/> Direct Google Meet enabled · Private 1:1 WebRTC call available
           </div>
         </div>
 
@@ -1241,7 +1234,7 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
                 <button
                   className="outline-button presence-action-btn"
                   onClick={() => onInitiateCall(p)}
-                  title="Saantvana Presence Call (WebRTC & Depth)"
+                  title="Saantvana Presence Call (WebRTC)"
                 >
                   <Waves size={15}/> Presence
                 </button>
@@ -1643,7 +1636,7 @@ function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpe
   );
 }
 
-// 100% Real WebRTC Call Modal with Screen Share, In-Call Chat, Floating Reactions, and Depth View
+// 100% Real WebRTC Call Modal with Screen Share, In-Call Chat, and Floating Reactions
 function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSettings, say }) {
   const [callState, sendCall] = useMachine(callMachine, () => ({
     ...initialCallContext,
@@ -1651,8 +1644,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
     role: person.role || (person.room ? 'guest' : 'host'),
     peerName: person.name || 'Your connection'
   }));
-
-  const [depthState, sendDepth] = useMachine(depthMachine, initialDepthContext);
 
   // In-call additions
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -1665,8 +1656,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
   const localVideo = useRef(null);
   const remoteVideo = useRef(null);
-  const depthCanvas = useRef(null);
-  const depthEstimator = useRef(null);
   const streamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const pcRef = useRef(null);
@@ -1676,7 +1665,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
   const roomUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(person.room)}`;
   const { context: callCtx } = callState;
-  const { context: depthCtx } = depthState;
 
   // In-call timer
   useEffect(() => {
@@ -1831,21 +1819,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
             pcRef.current = null;
             pendingIce.length = 0;
             sendCall({ type: CALL_EVENTS.PEER_LEFT });
-            sendDepth({ type: DEPTH_EVENTS.STREAM_DISCONNECTED });
-            return;
-          }
-
-          if (message.type === 'depth-request') {
-            sendDepth({ type: DEPTH_EVENTS.PEER_REQUEST_RECEIVED, name: message.name });
-            return;
-          }
-
-          if (message.type === 'depth-response') {
-            sendDepth({
-              type: DEPTH_EVENTS.PEER_CONSENT_RESPONSE,
-              allowed: message.allowed,
-              revoked: message.revoked
-            });
             return;
           }
 
@@ -1881,7 +1854,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
       pc.ontrack = (event) => {
         sendCall({ type: CALL_EVENTS.REMOTE_TRACK_RECEIVED, stream: event.streams[0] });
-        sendDepth({ type: DEPTH_EVENTS.STREAM_CONNECTED });
       };
 
       pc.onicecandidate = (event) => {
@@ -1916,7 +1888,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
       socketRef.current = null;
       streamRef.current = null;
       sendCall({ type: CALL_EVENTS.END_CALL });
-      sendDepth({ type: DEPTH_EVENTS.RESET });
     };
   }, []);
 
@@ -2006,121 +1977,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
     }
   };
 
-  // On-device depth inference pipeline
-  const isDepthActive = depthCtx.viewerState === VIEWER_STATES.ACTIVE;
-  const isDepthApprovedOrActive =
-    depthCtx.viewerState === VIEWER_STATES.APPROVED ||
-    depthCtx.viewerState === VIEWER_STATES.LOADING_MODEL ||
-    depthCtx.viewerState === VIEWER_STATES.ACTIVE;
 
-  useEffect(() => {
-    if (!isDepthApprovedOrActive || !callCtx.remoteStream || !remoteVideo.current || !depthCanvas.current) {
-      return;
-    }
-
-    let stopped = false;
-    let timer;
-
-    const processDepth = async () => {
-      try {
-        if (!depthEstimator.current) {
-          sendDepth({ type: DEPTH_EVENTS.MODEL_LOAD_START });
-          try {
-            const { env, pipeline } = await import('@huggingface/transformers');
-            env.allowRemoteModels = true;
-            env.allowLocalModels = false;
-            if (env.backends?.onnx?.wasm) {
-              env.backends.onnx.wasm.numThreads = 1;
-              env.backends.onnx.wasm.proxy = false;
-            }
-            depthEstimator.current = await pipeline('depth-estimation', 'Xenova/depth-anything-small-hf', {
-              dtype: 'q4',
-              device: 'wasm',
-              revision: '2e942621ab9f2371c1df9eb223291b5ac31475e6',
-            });
-          } catch (modelErr) {
-            console.warn('Neural depth network offline/unavailable, activating local adaptive focal depth layer:', modelErr);
-            depthEstimator.current = 'adaptive-fallback';
-          }
-          if (stopped) return;
-          sendDepth({ type: DEPTH_EVENTS.MODEL_LOAD_SUCCESS });
-        }
-
-        const video = remoteVideo.current;
-        if (stopped || !video || video.readyState < 2) return;
-
-        const w = 320;
-        const h = 180;
-        const canvas = depthCanvas.current;
-        if (!canvas) return;
-        canvas.width = w;
-        canvas.height = h;
-
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return;
-
-        if (depthEstimator.current === 'adaptive-fallback') {
-          // Instant local adaptive focal depth silhouette
-          ctx.drawImage(video, 0, 0, w, h);
-          const frame = ctx.getImageData(0, 0, w, h);
-          const data = frame.data;
-          const cx = w / 2;
-          const cy = h / 2;
-          const maxDist = Math.sqrt(cx * cx + cy * cy);
-          for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-              const idx = (y * w + x) * 4;
-              const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-              const focalWeight = 1 - Math.min(1, dist / maxDist);
-              const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-              const alpha = Math.min(210, Math.max(30, Math.floor(lum * 0.35 + focalWeight * 145)));
-              data[idx + 3] = alpha;
-            }
-          }
-          ctx.putImageData(frame, 0, 0);
-        } else {
-          // Neural Depth Estimation
-          const input = document.createElement('canvas');
-          input.width = w;
-          input.height = h;
-          input.getContext('2d', { willReadFrequently: true }).drawImage(video, 0, 0, w, h);
-
-          const result = await depthEstimator.current(input);
-          if (stopped || !depthCanvas.current) return;
-
-          const map = result.depth;
-          ctx.drawImage(input, 0, 0, w, h);
-
-          const frame = ctx.getImageData(0, 0, w, h);
-          const values = map.data;
-          const ordered = Array.from(values).sort((a, b) => a - b);
-          const threshold = ordered[Math.floor(ordered.length * 0.62)] ?? 128;
-
-          for (let i = 0; i < values.length; i++) {
-            const alpha = Math.max(0, Math.min(220, 110 + (values[i] - threshold) * 5));
-            frame.data[i * 4 + 3] = alpha;
-          }
-
-          ctx.putImageData(frame, 0, 0);
-        }
-      } catch {
-        if (!stopped) {
-          depthEstimator.current = 'adaptive-fallback';
-        }
-      } finally {
-        if (!stopped && depthCtx.viewerState === VIEWER_STATES.ACTIVE) {
-          timer = window.setTimeout(processDepth, 900);
-        }
-      }
-    };
-
-    processDepth();
-
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [isDepthApprovedOrActive, depthCtx.viewerState, callCtx.remoteStream, sendDepth]);
 
   const toggleTrack = (kind) => {
     const track = streamRef.current?.getTracks().find((item) => item.kind === kind);
@@ -2142,32 +1999,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
     }
   };
 
-  const requestDepth = () => {
-    if (depthCtx.viewerState === VIEWER_STATES.ACTIVE || depthCtx.viewerState === VIEWER_STATES.PAUSED) {
-      sendDepth({ type: DEPTH_EVENTS.TOGGLE_DEPTH });
-      return;
-    }
-    if (socketRef.current?.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(JSON.stringify({ type: 'depth-request', name: (person.displayName || profile.name).slice(0, 48) }));
-    sendDepth({ type: DEPTH_EVENTS.REQUEST_DEPTH });
-  };
 
-  const answerDepthRequest = (allowed) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: 'depth-response', allowed }));
-    }
-    sendDepth({ type: DEPTH_EVENTS.RESPOND_TO_CONSENT, allow: allowed });
-  };
-
-  const revokeDepth = () => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: 'depth-response', allowed: false, revoked: true }));
-    }
-    sendDepth({ type: DEPTH_EVENTS.REVOKE_CONSENT });
-  };
-
-  const isDepthBusy = depthCtx.viewerState === VIEWER_STATES.LOADING_MODEL;
-  const isDepthPending = depthCtx.viewerState === VIEWER_STATES.REQUESTING;
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -2202,7 +2034,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
         </div>
 
         {/* Video Stage */}
-        <div className={`live-call-stage ${isDepthActive ? 'depth-enabled' : ''}`}>
+        <div className="live-call-stage">
           {/* Call Duration Badge */}
           {callState.value === 'CONNECTED' && (
             <div className="call-timer-badge">
@@ -2224,10 +2056,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
           {/* Remote Video Tile */}
           <div className="video-tile remote-tile">
             {callCtx.remoteStream ? (
-              <>
-                <video ref={remoteVideo} autoPlay playsInline/>
-                <canvas className="depth-canvas" ref={depthCanvas} aria-hidden="true"/>
-              </>
+              <video ref={remoteVideo} autoPlay playsInline/>
             ) : (
               <div className="waiting-state">
                 {callCtx.error ? (
@@ -2274,7 +2103,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
           </div>
 
           {/* Local Video Tile */}
-          <div className="video-tile local-tile">
+          <div className={`video-tile local-tile ${isScreenSharing ? 'is-screen-share' : ''}`}>
             {callCtx.localStream ? (
               <video ref={localVideo} autoPlay playsInline muted/>
             ) : (
@@ -2339,32 +2168,12 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
           )}
         </div>
 
-        {/* Consent Prompt Dialog for Receiver */}
-        {depthCtx.consentState === CONSENT_STATES.PROMPTED && (
-          <div className="depth-consent" role="dialog" aria-label="Depth processing permission">
-            <div>
-              <b>{depthCtx.promptRequesterName} is asking to use depth view</b>
-              <span>This will estimate a depth layer on their device. Video frames are never sent to AI cloud services.</span>
-            </div>
-            <button className="outline-button" onClick={() => answerDepthRequest(false)}>Decline</button>
-            <button className="primary-button" onClick={() => answerDepthRequest(true)}>Allow</button>
-          </div>
-        )}
-
-        {/* Revocable Grant Banner */}
-        {depthCtx.consentState === CONSENT_STATES.GRANTED && (
-          <div className="depth-grant">
-            <span>You’re allowing on-device depth processing of your video.</span>
-            <button onClick={revokeDepth}>Revoke access</button>
-          </div>
-        )}
-
         {/* Live Status Bar */}
         <div className="live-status" role="status" aria-live="polite">
           {callCtx.error ? (
             <><span className="error-dot"/>{callCtx.error}</>
           ) : (
-            <><span className="live-dot" style={{ width: 7, height: 7 }}/>{depthCtx.note || callCtx.status}</>
+            <><span className="live-dot" style={{ width: 7, height: 7 }}/>{callCtx.status}</>
           )}
         </div>
 
@@ -2415,30 +2224,6 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
           >
             <span><MessageCircle size={20}/></span>
             Chat
-          </button>
-
-          <button
-            className={isDepthActive ? 'control-active' : ''}
-            disabled={isDepthPending || isDepthBusy}
-            onClick={() => {
-              if (!callCtx.remoteStream) {
-                say('Depth presence activates once a peer joins your call room.');
-                return;
-              }
-              requestDepth();
-            }}
-            title={callCtx.remoteStream ? 'The other person must approve. Runs locally on device.' : 'Depth presence activates when a peer joins'}
-          >
-            <span><Waves size={20}/></span>
-            {isDepthBusy
-              ? 'Loading…'
-              : isDepthPending
-              ? 'Awaiting approval'
-              : isDepthActive
-              ? 'Depth on'
-              : depthCtx.viewerState === VIEWER_STATES.PAUSED
-              ? 'Depth view'
-              : 'Depth view'}
           </button>
 
           <button className="end-call" onClick={onClose}>
@@ -2880,8 +2665,8 @@ function HowItWorksModal({ onClose }) {
           <button className={`tab-btn ${guideTab === 'calls' ? 'active' : ''}`} onClick={() => setGuideTab('calls')}>
             Private Calling & Meet
           </button>
-          <button className={`tab-btn ${guideTab === 'depth' ? 'active' : ''}`} onClick={() => setGuideTab('depth')}>
-            On-Device Depth View
+          <button className={`tab-btn ${guideTab === 'screenshare' ? 'active' : ''}`} onClick={() => setGuideTab('screenshare')}>
+            Screen Sharing & Calls
           </button>
           <button className={`tab-btn ${guideTab === 'privacy' ? 'active' : ''}`} onClick={() => setGuideTab('privacy')}>
             Privacy Principles
@@ -2901,13 +2686,13 @@ function HowItWorksModal({ onClose }) {
           </div>
         )}
 
-        {guideTab === 'depth' && (
+        {guideTab === 'screenshare' && (
           <div className="guide-section">
-            <span className="guide-badge"><Waves size={15}/> On-Device AI</span>
-            <h3>Depth Estimation & Two-Party Consent</h3>
-            <p>Saantvana provides an optional subtle depth-layer effect to make conversations feel more visually present.</p>
-            <p><b>Video sender consent is mandatory:</b> You cannot view depth until the person whose video is being processed clicks "Allow". They can click "Revoke" at any second to stop processing immediately.</p>
-            <p><b>Zero Cloud Video Uploads:</b> The depth model (a quantized ~27 MB model from Hugging Face) downloads to the viewing browser and runs locally using Transformers.js and WebGPU/WASM. No video frames are ever sent to an AI cloud provider.</p>
+            <span className="guide-badge"><Monitor size={15}/> 1:1 Direct WebRTC</span>
+            <h3>Crystal-Clear Screen Sharing & Calling</h3>
+            <p>Saantvana provides real-time WebRTC calling and full-screen sharing without cropping, distortion, or artificial lag.</p>
+            <p><b>Full Screen Aspect Ratio:</b> Screen sharing uses responsive aspect-ratio containment so that code, documents, and slides are never cut off or cropped at the edges.</p>
+            <p><b>Zero Cloud Recording:</b> Video, audio, screen feeds, and in-call chat pass directly between devices. No recordings or frames are ever stored on cloud servers.</p>
           </div>
         )}
 

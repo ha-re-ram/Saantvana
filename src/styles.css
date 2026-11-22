@@ -1837,13 +1837,34 @@ input:focus-visible {
 }
 
 .call-modal {
-  width: min(880px, 100%);
+  width: min(960px, 96vw);
   background: var(--surface);
   border-radius: 22px;
-  padding: 26px;
+  padding: 24px;
   box-shadow: 0 30px 90px rgba(20, 15, 38, 0.35);
   max-height: 94vh;
   overflow-y: auto;
+}
+
+/* Fullscreen support for high-fidelity screen sharing & calling */
+.call-modal:fullscreen,
+.call-modal:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  padding: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #0d0b18 !important;
+  box-sizing: border-box !important;
+}
+
+.call-modal:fullscreen .live-call-stage,
+.call-modal:-webkit-full-screen .live-call-stage {
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .call-top {
@@ -1873,13 +1894,13 @@ input:focus-visible {
 
 /* Call Stage & Video Grid */
 .live-call-stage {
-  height: 420px;
+  height: 460px;
   border-radius: 18px;
   position: relative;
   overflow: hidden;
-  background: #181524;
+  background: #0b0914;
   display: grid;
-  grid-template-columns: 1fr 180px;
+  grid-template-columns: 1fr 190px;
   gap: 12px;
   padding: 12px;
 }
@@ -1888,32 +1909,50 @@ input:focus-visible {
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  background: #252236;
+  background: #191627;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .video-tile video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  background: #1e1b2d;
+  background: #0b0914;
 }
 
+/* Remote / Shared screen tile: ALWAYS contain aspect ratio so nothing is cut off */
+.remote-tile video {
+  object-fit: contain !important;
+  background: #0b0914;
+}
+
+/* Local video tile: mirror normal selfie cam, but preserve orientation and contain when sharing screen */
 .local-tile video {
+  object-fit: cover;
   transform: scaleX(-1);
+  background: #191627;
+}
+
+.local-tile.is-screen-share video {
+  object-fit: contain !important;
+  transform: none !important;
+  background: #0b0914 !important;
 }
 
 .video-tile label {
   position: absolute;
   left: 12px;
   bottom: 12px;
-  background: rgba(20, 17, 32, 0.72);
+  background: rgba(14, 11, 24, 0.82);
   color: #fff;
   padding: 6px 10px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   backdrop-filter: blur(4px);
+  z-index: 3;
 }
 
 .waiting-state {
@@ -1972,24 +2011,6 @@ input:focus-visible {
   font-weight: 800;
   letter-spacing: 0.04em;
   margin-bottom: 10px;
-}
-
-.depth-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate3d(0, 0, 0);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.depth-enabled .depth-canvas {
-  opacity: 0.9;
-  transform: translate3d(4px, -3px, 0) scale(1.02);
-  filter: saturate(1.08);
 }
 
 /* Call Controls */
@@ -2934,48 +2955,6 @@ input:focus-visible {
   padding: 9px 12px;
   font-family: var(--font-body);
   font-size: 13px;
-}
-
-/* Call Modal Consent & Banner */
-.depth-consent,
-.depth-grant {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--purple-light);
-  border: 1.5px solid #ded6f0;
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin: 6px 0 10px;
-}
-
-.depth-consent b {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.depth-consent span,
-.depth-grant span {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-secondary);
-}
-
-.depth-grant {
-  justify-content: space-between;
-  background: var(--emerald-subtle);
-  border-color: #c6f0d7;
-}
-
-.depth-grant button {
-  border: 0;
-  background: none;
-  color: #b91c1c;
-  text-decoration: underline;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .live-status {
