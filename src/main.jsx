@@ -56,11 +56,6 @@ import {
   getBreathingView
 } from './machines/breathingMachine.js';
 import {
-  callMachine,
-  CALL_EVENTS,
-  initialCallContext
-} from './machines/callMachine.js';
-import {
   groundingMachine,
   GROUNDING_STATES,
   GROUNDING_EVENTS,
@@ -118,44 +113,6 @@ function uid() {
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
 }
 
-// High-resilience STUN & TURN configurations for symmetric NAT & mobile carrier traversal
-const defaultIceServers = [
-  {
-    urls: [
-      'stun:stun.l.google.com:19302',
-      'stun:stun1.l.google.com:19302',
-      'stun:stun2.l.google.com:19302',
-      'stun:stun3.l.google.com:19302',
-      'stun:stun4.l.google.com:19302'
-    ]
-  },
-  { urls: ['stun:stun.cloudflare.com:3478'] },
-  { urls: ['stun:global.stun.twilio.com:3478'] },
-  { urls: ['stun:stun.services.mozilla.com:3478'] },
-  // OpenRelay community TURN relay over standard web ports 80/443 (TCP/UDP)
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turn:openrelay.metered.ca:443?transport=tcp'
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
-];
-
-function resolveIceServers(profile) {
-  const list = [...defaultIceServers];
-  if (profile?.turnServer && profile.turnServer.trim()) {
-    list.unshift({
-      urls: profile.turnServer.trim(),
-      username: profile.turnUsername?.trim() || undefined,
-      credential: profile.turnCredential?.trim() || undefined
-    });
-  }
-  return list;
-}
-
 const defaultContacts = [];
 
 const connectionPrompts = [
@@ -167,11 +124,9 @@ const connectionPrompts = [
 function App() {
   const [page, setPage] = useState('Home');
   const [selectedGroup, setSelectedGroup] = useState('Everyone');
-  const [inviteName, setInviteName] = useState('');
   const [notice, setNotice] = useState('');
   const [installPrompt, setInstallPrompt] = useState(null);
   const [mobileNav, setMobileNav] = useState(false);
-  const [inviteRoom, setInviteRoom] = useState('');
 
   // Modal Orchestration State Machine (UX/DX/AX: Single focused overlay, zero collisions)
   const [modalState, sendModal] = useMachine(modalMachine);
@@ -181,7 +136,7 @@ function App() {
   const showConnectionForm = modalState.matches(MODAL_STATES.ADD_CONNECTION);
   const editingContact = modalState.matches(MODAL_STATES.EDIT_CONNECTION) ? modalState.context.targetPerson : null;
   const callChoiceTarget = modalState.matches(MODAL_STATES.CALL_CHOICE)
-    ? (modalState.context.targetPerson || { name: 'A connection', relation: '1:1 presence call' })
+    ? (modalState.context.targetPerson || { name: 'A connection', relation: 'Google Meet call' })
     : null;
 
   const closeModal = () => sendModal({ type: MODAL_EVENTS.CLOSE });
@@ -191,7 +146,7 @@ function App() {
   const openAddConnection = () => sendModal({ type: MODAL_EVENTS.OPEN_ADD_CONNECTION });
   const openEditConnection = (contact) => sendModal({ type: MODAL_EVENTS.OPEN_EDIT_CONNECTION, contact });
   const openCallChoice = (person) => {
-    const target = person || (connections.length > 0 ? connections[0] : { name: 'A connection', relation: '1:1 presence call' });
+    const target = person || (connections.length > 0 ? connections[0] : { name: 'A connection', relation: 'Google Meet call' });
     sendModal({ type: MODAL_EVENTS.OPEN_CALL_CHOICE, person: target });
   };
 
@@ -210,9 +165,26 @@ function App() {
 
   const [activePromptText, setActivePromptText] = useState('');
 
-  // Call sessions
-  const [call, setCall] = useState(null); // Active Saantvana WebRTC call
-  const [activeMeetSession, setActiveMeetSession] = useState(null); // Active Google Meet companion mode
+  // Google Meet Companion Session & Timer
+  const [activeMeetSession, setActiveMeetSession] = useState(null);
+  const [meetElapsed, setMeetElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!activeMeetSession) {
+      setMeetElapsed(0);
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setMeetElapsed((s) => s + 1);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [activeMeetSession]);
+
+  const formatElapsed = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   // Persistent User Profile
   const [profile, setProfile] = useState(() => {
@@ -224,7 +196,7 @@ function App() {
         return parsed;
       }
     } catch {}
-    return { name: '', space: 'My space', color: 'lilac', theme: 'light', defaultMic: true, defaultCam: true };
+    return { name: '', space: 'My space', color: 'lilac', theme: 'light', defaultMeetLink: '' };
   });
 
   const saveProfile = (updated) => {
@@ -302,32 +274,26 @@ function App() {
       setInstallPrompt(event);
     };
     const room = new URLSearchParams(window.location.search).get('room');
-    if (room && /^[A-Z0-9]{6,16}$/i.test(room)) {
-      window.setTimeout(() => setInviteRoom(room.toUpperCase()), 0);
+    if (room) {
+      say('Saantvana now connects directly via Google Meet for full reliability on all networks.');
+      history.replaceState({}, '', location.pathname);
     }
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Launch Saantvana Presence Call
-  const startSaantvanaCall = (person, room = '', displayName = profile.name) => {
-    const roomCode =
-      room ||
-      Array.from(crypto.getRandomValues(new Uint8Array(8)), (n) => n.toString(16).padStart(2, '0'))
-        .join('')
-        .toUpperCase();
-    setInviteRoom('');
-    closeModal();
-    const safePerson = person || { name: 'A connection', relation: '1:1 presence call' };
-    setCall({ ...safePerson, displayName: displayName || profile.name, room: roomCode, role: room ? 'guest' : 'host' });
-  };
-
   // Launch Google Meet
-  const startGoogleMeet = async (person) => {
+  const startGoogleMeet = async (person, customMeetUrl) => {
     closeModal();
     let meetUrl = 'https://meet.google.com/new';
-    if (person && person.meetLink) {
+    if (customMeetUrl && customMeetUrl.trim()) {
+      const clean = customMeetUrl.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    } else if (person && person.meetLink && person.meetLink.trim()) {
       const clean = person.meetLink.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    } else if (profile?.defaultMeetLink && profile.defaultMeetLink.trim()) {
+      const clean = profile.defaultMeetLink.trim();
       meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
     }
 
@@ -336,8 +302,9 @@ function App() {
 
     // Copy invitation text to clipboard
     try {
-      const inviteMsg = person
-        ? `Hi ${person.name}, let's meet on Google Meet: ${meetUrl}`
+      const targetName = person && person.name && person.name !== 'A connection' ? person.name : '';
+      const inviteMsg = targetName
+        ? `Hi ${targetName}, let's meet on Google Meet: ${meetUrl}`
         : `Join my Google Meet call: ${meetUrl}`;
       await navigator.clipboard.writeText(inviteMsg);
       say(`Google Meet opened in a new tab! Invitation copied to clipboard.`);
@@ -353,34 +320,45 @@ function App() {
     });
   };
 
-  const addConnection = (contact) => {
-    const next = [contact, ...connections];
-    saveConnections(next);
-    closeModal();
-    say(`${contact.name} added to your connections.`);
+  const shareViaWhatsApp = (person, customMeetUrl) => {
+    let meetUrl = 'https://meet.google.com/new';
+    if (customMeetUrl && customMeetUrl.trim()) {
+      const clean = customMeetUrl.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    } else if (person && person.meetLink && person.meetLink.trim()) {
+      const clean = person.meetLink.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    } else if (profile?.defaultMeetLink && profile.defaultMeetLink.trim()) {
+      const clean = profile.defaultMeetLink.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    }
+    const targetName = person?.name && person.name !== 'A connection' ? person.name : 'Friend';
+    const text = encodeURIComponent(`Hi ${targetName}, let's connect on Google Meet: ${meetUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    say(`WhatsApp opened with your Google Meet invite.`);
   };
 
-  const updateConnection = (updated) => {
-    const next = connections.map((c) => (c.id === updated.id ? updated : c));
-    saveConnections(next);
-    closeModal();
-    say(`${updated.name} updated.`);
-  };
-
-  const removeConnection = (contact) => {
-    const next = connections.filter((item) => item.id !== contact.id);
-    saveConnections(next);
-    say(`${contact.name} was removed.`);
-  };
-
-  const copyRoomInvite = async (person) => {
-    const roomCode = Array.from(crypto.getRandomValues(new Uint8Array(8)), (n) => n.toString(16).padStart(2, '0')).join('').toUpperCase();
-    const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+  const copyMeetInvite = async (person, customMeetUrl) => {
+    let meetUrl = 'https://meet.google.com/new';
+    if (customMeetUrl && customMeetUrl.trim()) {
+      const clean = customMeetUrl.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    } else if (person && person.meetLink && person.meetLink.trim()) {
+      const clean = person.meetLink.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    } else if (profile?.defaultMeetLink && profile.defaultMeetLink.trim()) {
+      const clean = profile.defaultMeetLink.trim();
+      meetUrl = clean.startsWith('http') ? clean : `https://meet.google.com/${clean}`;
+    }
+    const targetName = person?.name && person.name !== 'A connection' ? person.name : '';
+    const text = targetName
+      ? `Hi ${targetName}, let's meet on Google Meet: ${meetUrl}`
+      : `Join my Google Meet call: ${meetUrl}`;
     try {
-      await navigator.clipboard.writeText(`Hi ${person.name}, let's connect for a presence call on Saantvana: ${url}`);
-      say(`Direct invite link for ${person.name} copied to clipboard.`);
+      await navigator.clipboard.writeText(text);
+      say(`Google Meet invitation copied to clipboard.`);
     } catch {
-      say(`Could not copy automatically. Link: ${url}`);
+      say(`Could not copy automatically. Link: ${meetUrl}`);
     }
   };
 
@@ -580,87 +558,50 @@ function App() {
           {/* Active Google Meet Companion Banner */}
           {activeMeetSession && (
             <div className="meet-companion-card">
-              <GoogleMeetLogo size={24}/>
-              <div style={{ flex: 1 }}>
-                <b>Google Meet in progress with {activeMeetSession.person.name}</b>
-                <p>Enjoy your conversation in your open Meet tab. When your call ends, take a quiet pause to ground yourself.</p>
+              <div className="companion-left">
+                <GoogleMeetLogo size={28}/>
+                <div>
+                  <div className="companion-title-row">
+                    <b>Google Meet in progress with {activeMeetSession.person.name}</b>
+                    <span className="companion-timer"><span className="live-dot"/> {formatElapsed(meetElapsed)}</span>
+                  </div>
+                  <p>Connected via Google Meet in your open tab. Saantvana stays right here as your quiet companion.</p>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="companion-actions">
                 <button
-                  className="outline-button"
-                  onClick={() => { go('Wellbeing'); setActiveMeetSession(null); }}
+                  className="outline-button small-btn"
+                  onClick={() => window.open(activeMeetSession.meetUrl, '_blank')}
+                  title="Re-open or switch to your Meet tab"
                 >
-                  <Activity size={15}/> Mindful pause
+                  <ExternalLink size={14}/> Open Meet tab
                 </button>
                 <button
-                  className="icon-button"
-                  aria-label="Dismiss Meet banner"
-                  onClick={() => setActiveMeetSession(null)}
+                  className="outline-button small-btn"
+                  onClick={() => go('Wellbeing', 'pause')}
+                  title="Take a 1-minute calming breath"
                 >
-                  <X size={16}/>
+                  <Activity size={14}/> Mindful pause
+                </button>
+                <button
+                  className="outline-button small-btn"
+                  onClick={() => go('Wellbeing', 'grounding')}
+                  title="5-4-3-2-1 Sensory Grounding"
+                >
+                  <ShieldCheck size={14}/> Grounding
+                </button>
+                <button
+                  className="primary-button small-btn end-session-btn"
+                  onClick={() => {
+                    setActiveMeetSession(null);
+                    say('Call ended. Take a gentle breath before your next activity.');
+                  }}
+                  title="Finish and dismiss Meet session"
+                >
+                  Finish call
                 </button>
               </div>
             </div>
-          )}
-
-          {inviteRoom && (
-            <section className="invite-banner" aria-label="Presence call invitation">
-              <div className="invite-banner-header">
-                <div className="invite-banner-badge">
-                  <span className="live-dot"/>
-                  <span>Room {inviteRoom}</span>
-                </div>
-                <button
-                  className="icon-button invite-dismiss-btn"
-                  aria-label="Dismiss invitation"
-                  title="Dismiss invitation"
-                  onClick={() => {
-                    setInviteRoom('');
-                    history.replaceState({}, '', location.pathname);
-                  }}
-                >
-                  <X size={18}/>
-                </button>
-              </div>
-
-              <div className="invite-banner-body">
-                <div className="invite-banner-info">
-                  <h3 className="invite-title">You’ve been invited to a Saantvana presence call</h3>
-                  <p className="invite-sub">Camera and microphone are requested only when you join.</p>
-                </div>
-
-                <div className="invite-banner-actions">
-                  <label className="invite-name-label">
-                    <span className="invite-label-text">Your name</span>
-                    <input
-                      className="invite-name"
-                      maxLength={48}
-                      placeholder={profile.name || 'Your name'}
-                      value={inviteName}
-                      onChange={(event) => setInviteName(event.target.value)}
-                    />
-                  </label>
-                  <button
-                    className="primary-button invite-join-btn"
-                    onClick={() => {
-                      const name = inviteName.trim() || profile.name || 'Friend';
-                      startSaantvanaCall(
-                        {
-                          name,
-                          initials: name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'C',
-                          color: profile.color || 'lilac'
-                        },
-                        inviteRoom,
-                        name
-                      );
-                    }}
-                  >
-                    <span>Join call</span>
-                    <ArrowRight size={16}/>
-                  </button>
-                </div>
-              </div>
-            </section>
           )}
 
           {page === 'Home' && (
@@ -695,7 +636,7 @@ function App() {
               onAdd={openAddConnection}
               onEdit={(c) => openEditConnection(c)}
               onRemove={removeConnection}
-              onShare={copyRoomInvite}
+              onShare={(person) => openCallChoice(person)}
             />
           )}
 
@@ -732,14 +673,23 @@ function App() {
 
       {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)}/>}
 
-      {/* Choose Call Type Modal: Saantvana Presence vs Google Meet */}
+      {/* Google Meet Connect & Share Modal */}
       {callChoiceTarget && (
-        <CallChoiceModal
+        <MeetConnectModal
           person={callChoiceTarget}
           profile={profile}
           onClose={closeModal}
-          onSelectSaantvana={() => startSaantvanaCall(callChoiceTarget)}
-          onSelectGoogleMeet={() => startGoogleMeet(callChoiceTarget)}
+          onStartMeet={(p, url) => startGoogleMeet(p, url)}
+          onShareWhatsApp={(p, url) => shareViaWhatsApp(p, url)}
+          onCopyInvite={(p, url) => copyMeetInvite(p, url)}
+          onSaveMeetLink={(link) => {
+            if (callChoiceTarget && callChoiceTarget.id) {
+              updateConnection({ ...callChoiceTarget, meetLink: link });
+            } else {
+              saveProfile({ ...profile, defaultMeetLink: link });
+            }
+          }}
+          say={say}
         />
       )}
 
@@ -799,28 +749,6 @@ function App() {
       {/* Confidential Crisis & Helplines Modal */}
       {showCrisis && (
         <CrisisModal onClose={closeModal}/>
-      )}
-
-      {/* Saantvana WebRTC 1:1 Video Call Modal */}
-      {call && (
-        <CallModal
-          person={call}
-          profile={profile}
-          say={say}
-          onClose={() => {
-            setCall(null);
-            say('Call ended. Take a moment before your next thing.');
-          }}
-          onSwitchToGoogleMeet={() => {
-            const target = call;
-            setCall(null);
-            startGoogleMeet(target);
-          }}
-          onOpenSettings={() => {
-            setCall(null);
-            openSettings();
-          }}
-        />
       )}
 
       {notice && (
@@ -884,70 +812,142 @@ function NavItem({ icon, label, active, onClick, badge }) {
   );
 }
 
-// Call Choice Modal: Allows seamlessly choosing between Saantvana Presence and Google Meet
-function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelectGoogleMeet }) {
+// Google Meet Connect & Share Modal: Instant Room, WhatsApp Sharing, and Calm Presence
+function MeetConnectModal({ person, profile, onClose, onStartMeet, onShareWhatsApp, onCopyInvite, onSaveMeetLink, say }) {
   const isGeneric = !person?.name || person?.name.toLowerCase() === 'a connection';
   const targetName = isGeneric ? 'A connection' : person.name;
+  const initialMeetLink = person?.meetLink || profile?.defaultMeetLink || '';
+  const [meetLinkInput, setMeetLinkInput] = useState(initialMeetLink);
+  const [isEditingLink, setIsEditingLink] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const activeUrl = meetLinkInput.trim()
+    ? (meetLinkInput.trim().startsWith('http') ? meetLinkInput.trim() : `https://meet.google.com/${meetLinkInput.trim()}`)
+    : 'https://meet.google.com/new';
+
+  const handleLaunch = () => {
+    onStartMeet(person, activeUrl);
+  };
+
+  const handleWhatsApp = () => {
+    onShareWhatsApp(person, activeUrl);
+  };
+
+  const handleCopy = async () => {
+    await onCopyInvite(person, activeUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2400);
+  };
+
+  const saveLink = (e) => {
+    e.preventDefault();
+    if (onSaveMeetLink) {
+      onSaveMeetLink(meetLinkInput.trim());
+    }
+    setIsEditingLink(false);
+    say?.(`Google Meet link saved for ${targetName}.`);
+  };
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section className="form-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="call-choice-title">
+      <section className="form-modal meet-connect-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="meet-title">
         <div className="call-top">
-          <div>
-            <span className="call-status">CONNECT {!isGeneric ? `WITH ${targetName.toUpperCase()}` : 'PRIVATELY'}</span>
-            <h2 id="call-choice-title">Choose how you'd like to call</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className={`avatar avatar-${person?.color || 'peach'}`} style={{ width: 40, height: 40, fontSize: 16 }}>
+              {person?.initials || 'C'}
+            </div>
+            <div>
+              <span className="call-status">CONNECT {!isGeneric ? `WITH ${targetName.toUpperCase()}` : 'PRIVATELY'}</span>
+              <h2 id="meet-title" style={{ fontSize: '18px', margin: 0 }}>Google Meet Call</h2>
+            </div>
           </div>
           <button className="icon-button" aria-label="Close" onClick={onClose}>
             <X size={20}/>
           </button>
         </div>
 
-        <p className="form-intro">
-          {!isGeneric ? <>Connect with <b>{targetName}</b> in a calm private presence space, or jump straight into Google Meet.</> : 'Connect with someone you trust in a calm private presence space, or jump straight into Google Meet.'}
+        <p className="form-intro" style={{ margin: '14px 0 16px' }}>
+          Connect with {!isGeneric ? <b>{targetName}</b> : 'someone you care about'} using Google Meet. Works reliably on any device, 5G/4G cellular network, or Wi-Fi without server drops.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Saantvana Option */}
-          <div className="call-choice-card presence-choice" onClick={onSelectSaantvana}>
-            <div className="choice-icon">
-              <Waves size={24}/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <b>Saantvana Presence Call</b>
-                <span className="choice-badge">
-                  WebRTC 1:1 · Direct Private Call
-                </span>
-              </div>
-              <span className="choice-desc">
-                Private 1:1 connection · Direct WebRTC video & screen sharing · Zero cloud recording
-              </span>
-            </div>
-            <ArrowRight size={18} className="choice-arrow"/>
+        {/* Meet Link Display & Editor */}
+        <div className="meet-link-box">
+          <div className="meet-link-info">
+            <span className="meet-link-label">MEET ROOM TARGET</span>
+            <span className="meet-link-val">{meetLinkInput.trim() ? activeUrl : 'Instant new room (meet.google.com/new)'}</span>
           </div>
+          <button
+            type="button"
+            className="text-button"
+            style={{ fontSize: '12px', padding: '4px 8px' }}
+            onClick={() => setIsEditingLink(!isEditingLink)}
+          >
+            {isEditingLink ? 'Done' : 'Change code'}
+          </button>
+        </div>
 
-          {/* Google Meet Option */}
-          <div className="call-choice-card meet-choice" onClick={onSelectGoogleMeet}>
-            <div className="choice-icon">
-              <GoogleMeetLogo size={26}/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <b>Google Meet</b>
-                <span className="choice-badge">
-                  Instant · Companion Mode
-                </span>
-              </div>
-              <span className="choice-desc">
-                {person?.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
-              </span>
-            </div>
-            <ExternalLink size={18} className="choice-arrow"/>
+        {isEditingLink && (
+          <form onSubmit={saveLink} style={{ display: 'flex', gap: 8, marginTop: 8, marginBottom: 12 }}>
+            <input
+              type="text"
+              placeholder="e.g. meet.google.com/abc-defg-hij or code"
+              value={meetLinkInput}
+              onChange={(e) => setMeetLinkInput(e.target.value)}
+              style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}
+            />
+            <button type="submit" className="primary-button" style={{ padding: '8px 14px', fontSize: '13px' }}>
+              Save
+            </button>
+          </form>
+        )}
+
+        {/* Main Action Launchers */}
+        <div className="meet-action-stack">
+          {/* Launch Meet Button */}
+          <button
+            className="google-meet-btn primary-meet meet-hero-btn"
+            onClick={handleLaunch}
+          >
+            <GoogleMeetLogo size={22}/>
+            <span style={{ fontWeight: 700, fontSize: '15px' }}>Start Google Meet Now</span>
+            <ExternalLink size={16} style={{ marginLeft: 'auto', opacity: 0.8 }}/>
+          </button>
+
+          {/* Share via WhatsApp & Copy Row */}
+          <div className="meet-share-row">
+            <button
+              type="button"
+              className="meet-whatsapp-btn"
+              onClick={handleWhatsApp}
+              title="Share invite directly on WhatsApp"
+            >
+              <MessageCircle size={16}/>
+              <span>Share via WhatsApp</span>
+            </button>
+
+            <button
+              type="button"
+              className="outline-button meet-copy-btn"
+              onClick={handleCopy}
+              title="Copy Meet link invitation"
+            >
+              {copied ? <Check size={16} style={{ color: '#16a34a' }}/> : <Copy size={16}/>}
+              <span>{copied ? 'Copied!' : 'Copy Invite'}</span>
+            </button>
           </div>
         </div>
 
-        <div className="form-actions" style={{ marginTop: 20 }}>
-          <button className="outline-button" onClick={onClose}>Cancel</button>
+        {/* Mindful Pre-Call Note */}
+        <div className="meet-mindful-box">
+          <Sparkles size={16} style={{ color: '#6e56cf', flexShrink: 0, marginTop: 2 }}/>
+          <div>
+            <b>A moment before you connect</b>
+            <p>Take one deep breath and notice how your body feels. Saantvana will stay open as a quiet companion while you talk.</p>
+          </div>
+        </div>
+
+        <div className="form-actions" style={{ marginTop: 18 }}>
+          <button className="outline-button" onClick={onClose}>Close</button>
         </div>
       </section>
     </div>
@@ -1004,11 +1004,11 @@ function HomePage({
 
           {showQuickActions && (
             <div className="popover-menu" style={{ right: 0, top: 48 }} onClick={(e) => e.stopPropagation()}>
-              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onInitiateCall(people[0]); }}>
-                <Video size={17}/> Create presence call
-              </button>
               <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onStartGoogleMeet(); }}>
                 <GoogleMeetLogo size={17}/> Instant Google Meet
+              </button>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onInitiateCall(people[0]); }}>
+                <Share2 size={17}/> Connect & share invite
               </button>
               <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onAdd(); }}>
                 <Plus size={17}/> Add connection
@@ -1018,14 +1018,6 @@ function HomePage({
               </button>
               <button className="popover-item" onClick={() => { onCloseQuickActions?.(); go('Wellbeing', 'grounding'); }}>
                 <ShieldCheck size={17}/> 5-4-3-2-1 Sensory grounding
-              </button>
-              <button className="popover-item" onClick={() => {
-                onCloseQuickActions?.();
-                const roomCode = Array.from(crypto.getRandomValues(new Uint8Array(8)), (n) => n.toString(16).padStart(2, '0')).join('').toUpperCase();
-                navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`);
-                say('Instant room link copied to clipboard.');
-              }}>
-                <Share2 size={17}/> Copy instant room link
               </button>
               <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onOpenGuide(); }}>
                 <CircleHelp size={17}/> How Saantvana works
@@ -1040,7 +1032,7 @@ function HomePage({
         <div className="hero-copy">
           <div className="hero-kicker"><span className="live-dot"/> YOUR CONNECTION MOMENT</div>
           <h2>Presence is a gift<br/>you can share.</h2>
-          <p>Make a little room for someone you care about. Choose a private 1:1 call or jump into Google Meet.</p>
+          <p>Make a little room for someone you care about. Connect instantly on Google Meet with calm companion tools.</p>
 
           <div className="hero-actions">
             <button
@@ -1051,12 +1043,12 @@ function HomePage({
               <span>Start Google Meet</span>
             </button>
             <button className="outline-button hero-presence-btn" onClick={() => onInitiateCall(people[0])}>
-              <Waves size={16}/> Saantvana Presence
+              <Share2 size={16}/> Connect & Share
             </button>
           </div>
 
           <div className="hero-caption">
-            <ShieldCheck size={16}/> Direct Google Meet enabled · Private 1:1 WebRTC call available
+            <ShieldCheck size={16}/> Direct Google Meet enabled · Instant & reliable on all mobile carriers & Wi-Fi
           </div>
         </div>
 
@@ -1225,12 +1217,12 @@ function PersonCard({ person, onInitiateCall, onStartGoogleMeet, say, onRemove }
           <span className="meet-card-text">Meet</span>
         </button>
         <button
-          className="presence-card-btn"
-          aria-label={`Start presence call with ${person.name}`}
-          onClick={() => onInitiateCall(person)}
-          title="Saantvana Presence Call"
+          className="outline-button person-share-btn"
+          aria-label={`Share Meet invitation with ${person.name}`}
+          onClick={() => onInitiateCall?.(person)}
+          title="Share Meet invite via WhatsApp or copy link"
         >
-          <Waves size={15}/>
+          <Share2 size={15}/>
         </button>
         <button
           className="person-more"
@@ -1328,19 +1320,11 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
                 </button>
 
                 <button
-                  className="outline-button presence-action-btn"
-                  onClick={() => onInitiateCall(p)}
-                  title="Saantvana Presence Call (WebRTC)"
-                >
-                  <Waves size={15}/> Presence
-                </button>
-
-                <button
                   className="outline-button"
                   onClick={() => onShare(p)}
-                  title="Copy direct invite link"
+                  title="Share Meet invitation via WhatsApp or Link"
                 >
-                  <Share2 size={15}/>
+                  <Share2 size={15}/> <span>Share</span>
                 </button>
 
                 <button
@@ -1742,644 +1726,6 @@ function WellbeingPage({
   );
 }
 
-// 100% Real WebRTC Call Modal with Screen Share, In-Call Chat, and Floating Reactions
-function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSettings, say }) {
-  const [callState, sendCall] = useMachine(callMachine, () => ({
-    ...initialCallContext,
-    person,
-    role: person.role || (person.room ? 'guest' : 'host'),
-    peerName: person.name || 'Your connection'
-  }));
-
-  // In-call additions
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [floatingReactions, setFloatingReactions] = useState([]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const localVideo = useRef(null);
-  const remoteVideo = useRef(null);
-  const streamRef = useRef(null);
-  const screenStreamRef = useRef(null);
-  const pcRef = useRef(null);
-  const socketRef = useRef(null);
-  const callContainerRef = useRef(null);
-  const roleRef = useRef(person.role || (person.room ? 'guest' : 'host'));
-
-  const roomUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(person.room)}`;
-  const { context: callCtx } = callState;
-
-  // In-call timer
-  useEffect(() => {
-    if (callState.value !== 'CONNECTED') return;
-    const interval = window.setInterval(() => {
-      setElapsedSeconds((s) => s + 1);
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [callState.value]);
-
-  const formatCallTime = (secs) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
-  // WebRTC & WebSocket signaling session lifecycle
-  useEffect(() => {
-    let disposed = false;
-    const pendingIce = [];
-
-    sendCall({ type: CALL_EVENTS.START, person });
-
-    const connect = async () => {
-      try {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('Camera and microphone access requires a secure connection (HTTPS or localhost).');
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
-
-        if (disposed) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        streamRef.current = stream;
-        sendCall({ type: CALL_EVENTS.LOCAL_STREAM_ACQUIRED, stream });
-
-        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const isRenderHost = typeof window !== 'undefined' && window.location.hostname.endsWith('onrender.com');
-        const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-        // Any static deployment (GitHub Pages at hareramkushwaha.com.np or ha-re-ram.github.io, etc.) connects to Render signaling by default
-        const defaultSignalUrl = (isRenderHost || isLocalHost)
-          ? `${protocol}//${location.host}/signal`
-          : 'wss://saantvana.onrender.com/signal';
-        const signalUrl = (profile?.signalUrl && profile.signalUrl.trim()) ||
-                          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SIGNAL_URL) ||
-                          defaultSignalUrl;
-        const socket = new WebSocket(signalUrl);
-        socketRef.current = socket;
-
-        socket.onopen = () => {
-          socket.send(JSON.stringify({
-            type: 'join',
-            room: person.room,
-            name: (person.displayName || profile.name).slice(0, 48)
-          }));
-        };
-
-        socket.onerror = () => {
-          sendCall({
-            type: CALL_EVENTS.SOCKET_ERROR,
-            message: 'Could not reach Saantvana’s signaling service. Connect via Google Meet or verify the signaling server.'
-          });
-        };
-
-        socket.onclose = () => {
-          if (!disposed && !callCtx.error) {
-            sendCall({ type: CALL_EVENTS.SOCKET_CLOSED });
-          }
-        };
-
-        socket.onmessage = async (event) => {
-          let message;
-          try {
-            message = JSON.parse(event.data);
-          } catch {
-            return;
-          }
-
-          if (message.type === 'error') {
-            sendCall({ type: CALL_EVENTS.SOCKET_ERROR, message: message.message });
-            return;
-          }
-
-          if (message.type === 'joined') {
-            roleRef.current = message.role;
-            sendCall({
-              type: CALL_EVENTS.SOCKET_JOINED,
-              role: message.role,
-              peerName: message.peerName
-            });
-            return;
-          }
-
-          if (message.type === 'waiting') {
-            sendCall({ type: CALL_EVENTS.SOCKET_WAITING });
-            return;
-          }
-
-          if (message.type === 'peer-joined') {
-            sendCall({ type: CALL_EVENTS.PEER_JOINED, name: message.name });
-            if (roleRef.current === 'host') {
-              const pc = makePeerConnection();
-              const offer = await pc.createOffer();
-              await pc.setLocalDescription(offer);
-              socket.send(JSON.stringify({ type: 'offer', description: pc.localDescription }));
-            }
-            return;
-          }
-
-          if (message.type === 'offer') {
-            sendCall({ type: CALL_EVENTS.OFFER_RECEIVED });
-            const pc = makePeerConnection();
-            const desc = typeof RTCSessionDescription !== 'undefined' ? new RTCSessionDescription(message.description) : message.description;
-            await pc.setRemoteDescription(desc);
-            for (const candidate of pendingIce.splice(0)) {
-              try {
-                const ice = typeof RTCIceCandidate !== 'undefined' ? new RTCIceCandidate(candidate) : candidate;
-                await pc.addIceCandidate(ice);
-              } catch {}
-            }
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.send(JSON.stringify({ type: 'answer', description: pc.localDescription }));
-            return;
-          }
-
-          if (message.type === 'answer' && pcRef.current) {
-            sendCall({ type: CALL_EVENTS.ANSWER_RECEIVED });
-            const desc = typeof RTCSessionDescription !== 'undefined' ? new RTCSessionDescription(message.description) : message.description;
-            await pcRef.current.setRemoteDescription(desc);
-            for (const candidate of pendingIce.splice(0)) {
-              try {
-                const ice = typeof RTCIceCandidate !== 'undefined' ? new RTCIceCandidate(candidate) : candidate;
-                await pcRef.current.addIceCandidate(ice);
-              } catch {}
-            }
-            return;
-          }
-
-          if (message.type === 'ice' && message.candidate) {
-            if (pcRef.current && pcRef.current.remoteDescription) {
-              try {
-                const ice = typeof RTCIceCandidate !== 'undefined' ? new RTCIceCandidate(message.candidate) : message.candidate;
-                await pcRef.current.addIceCandidate(ice);
-              } catch {}
-            } else {
-              pendingIce.push(message.candidate);
-            }
-            return;
-          }
-
-          if (message.type === 'peer-left') {
-            pcRef.current?.close();
-            pcRef.current = null;
-            pendingIce.length = 0;
-            sendCall({ type: CALL_EVENTS.PEER_LEFT });
-            return;
-          }
-
-          // Live In-Call Messaging
-          if (message.type === 'chat' && message.text) {
-            setChatMessages((prev) => [...prev, { id: uid(), sender: 'theirs', text: message.text }]);
-          }
-
-          // Live In-Call Floating Reactions
-          if (message.type === 'reaction' && message.emoji) {
-            triggerFloatingReaction(message.emoji);
-          }
-        };
-      } catch (cause) {
-        if (!disposed) {
-          sendCall({
-            type: CALL_EVENTS.MEDIA_ERROR,
-            error:
-              cause.name === 'NotAllowedError'
-                ? 'Camera or microphone permission was denied. Allow access in your browser settings and try again.'
-                : cause.message || 'Could not start camera and microphone.'
-          });
-        }
-      }
-    };
-
-    const makePeerConnection = () => {
-      if (pcRef.current) return pcRef.current;
-      const iceServers = resolveIceServers(profile);
-      const pc = new RTCPeerConnection({
-        iceServers,
-        iceCandidatePoolSize: 10
-      });
-      pcRef.current = pc;
-
-      streamRef.current?.getTracks().forEach((track) => pc.addTrack(track, streamRef.current));
-
-      pc.ontrack = (event) => {
-        sendCall({ type: CALL_EVENTS.REMOTE_TRACK_RECEIVED, stream: event.streams[0] });
-      };
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate && socketRef.current?.readyState === WebSocket.OPEN) {
-          socketRef.current.send(JSON.stringify({ type: 'ice', candidate: event.candidate }));
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') {
-          sendCall({ type: CALL_EVENTS.CONNECTION_CONNECTED });
-        } else if (pc.connectionState === 'failed') {
-          sendCall({
-            type: CALL_EVENTS.CONNECTION_FAILED,
-            message: 'Direct connection blocked by carrier network. This network requires a TURN relay.'
-          });
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          sendCall({ type: CALL_EVENTS.CONNECTION_CONNECTED });
-        } else if (pc.iceConnectionState === 'failed') {
-          if (pc.restartIce) {
-            pc.restartIce();
-          } else {
-            sendCall({
-              type: CALL_EVENTS.CONNECTION_FAILED,
-              message: 'Direct connection blocked by carrier network. This network requires a TURN relay.'
-            });
-          }
-        }
-      };
-
-      return pc;
-    };
-
-    connect();
-
-    return () => {
-      disposed = true;
-      pcRef.current?.close();
-      socketRef.current?.close();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      screenStreamRef.current?.getTracks().forEach((track) => track.stop());
-      pcRef.current = null;
-      socketRef.current = null;
-      streamRef.current = null;
-      sendCall({ type: CALL_EVENTS.END_CALL });
-    };
-  }, []);
-
-  // Sync video elements with streams
-  useEffect(() => {
-    if (localVideo.current && callCtx.localStream) {
-      localVideo.current.srcObject = callCtx.localStream;
-    }
-  }, [callCtx.localStream]);
-
-  useEffect(() => {
-    if (remoteVideo.current && callCtx.remoteStream) {
-      remoteVideo.current.srcObject = callCtx.remoteStream;
-    }
-  }, [callCtx.remoteStream]);
-
-  // Screen Sharing
-  const toggleScreenShare = async () => {
-    if (isScreenSharing) {
-      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current = null;
-      setIsScreenSharing(false);
-
-      if (streamRef.current && pcRef.current) {
-        const videoTrack = streamRef.current.getVideoTracks()[0];
-        const sender = pcRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
-        if (sender && videoTrack) sender.replaceTrack(videoTrack);
-        if (localVideo.current) localVideo.current.srcObject = streamRef.current;
-      }
-    } else {
-      try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        screenStreamRef.current = screenStream;
-        setIsScreenSharing(true);
-
-        const screenTrack = screenStream.getVideoTracks()[0];
-        if (pcRef.current) {
-          const sender = pcRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
-        }
-        if (localVideo.current) localVideo.current.srcObject = screenStream;
-
-        screenTrack.onended = () => {
-          toggleScreenShare();
-        };
-      } catch {}
-    }
-  };
-
-  // In-Call Chat Sending
-  const sendChatMessage = (e) => {
-    e.preventDefault();
-    const clean = chatInput.trim();
-    if (!clean) return;
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: 'chat', text: clean }));
-    }
-    setChatMessages((prev) => [...prev, { id: uid(), sender: 'mine', text: clean }]);
-    setChatInput('');
-  };
-
-  // Floating Reactions
-  const triggerFloatingReaction = (emoji) => {
-    const id = uid();
-    const x = Math.floor(Math.random() * 60) + 20;
-    setFloatingReactions((prev) => [...prev, { id, emoji, x }]);
-    window.setTimeout(() => {
-      setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
-    }, 2200);
-  };
-
-  const sendReaction = (emoji) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: 'reaction', emoji }));
-    }
-    triggerFloatingReaction(emoji);
-  };
-
-  // Fullscreen
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      callContainerRef.current?.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
-  };
-
-
-
-  const toggleTrack = (kind) => {
-    const track = streamRef.current?.getTracks().find((item) => item.kind === kind);
-    if (!track) return;
-    track.enabled = !track.enabled;
-    sendCall({ type: CALL_EVENTS.TOGGLE_TRACK, kind });
-  };
-
-  const copyInvite = async () => {
-    try {
-      await navigator.clipboard.writeText(roomUrl);
-      sendCall({ type: CALL_EVENTS.SET_COPIED, copied: true });
-      window.setTimeout(() => sendCall({ type: CALL_EVENTS.SET_COPIED, copied: false }), 2200);
-    } catch {
-      sendCall({
-        type: CALL_EVENTS.SOCKET_ERROR,
-        message: 'Copy was unavailable. Share the room link from your browser address bar.'
-      });
-    }
-  };
-
-
-
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <section
-        ref={callContainerRef}
-        className="call-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="call-title"
-      >
-        <div className="call-top">
-          <div>
-            <span className="call-status">
-              <i className="live-dot"/> PRIVATE CALL · ROOM {person.room}
-            </span>
-            <h2 id="call-title">A moment with {callCtx.peerName.split(' ')[0]}</h2>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              className="icon-button"
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              onClick={toggleFullscreen}
-              title="Toggle fullscreen"
-            >
-              {isFullscreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
-            </button>
-            <button className="icon-button" aria-label="Close call" onClick={onClose}>
-              <X size={20}/>
-            </button>
-          </div>
-        </div>
-
-        {/* Video Stage */}
-        <div className="live-call-stage">
-          {/* Call Duration Badge */}
-          {callState.value === 'CONNECTED' && (
-            <div className="call-timer-badge">
-              <i/> {formatCallTime(elapsedSeconds)}
-            </div>
-          )}
-
-          {/* Floating Reaction Bubbles */}
-          {floatingReactions.map((r) => (
-            <span
-              key={r.id}
-              className="floating-reaction"
-              style={{ left: `${r.x}%` }}
-            >
-              {r.emoji}
-            </span>
-          ))}
-
-          {/* Remote Video Tile */}
-          <div className="video-tile remote-tile">
-            {callCtx.remoteStream ? (
-              <video ref={remoteVideo} autoPlay playsInline/>
-            ) : (
-              <div className="waiting-state">
-                {callCtx.error ? (
-                  <div className="signaling-fallback-box">
-                    <span className="fallback-badge">
-                      {callCtx.error?.toLowerCase().includes('turn') || callCtx.error?.toLowerCase().includes('carrier') ? 'CARRIER NETWORK NOTICE' : 'CONNECTION NOTICE'}
-                    </span>
-                    <b style={{ fontSize: '16px', display: 'block', marginTop: 4 }}>
-                      {callCtx.error?.toLowerCase().includes('turn') || callCtx.error?.toLowerCase().includes('carrier') ? 'Direct Peer-to-Peer Blocked' : 'Signaling Service Notice'}
-                    </b>
-                    <p style={{ maxWidth: 360, fontSize: 13, color: '#e0def4', lineHeight: 1.5, margin: '8px auto 16px' }}>
-                      {callCtx.error?.toLowerCase().includes('turn') || callCtx.error?.toLowerCase().includes('carrier')
-                        ? 'Your mobile carrier (5G/LTE) or firewall uses Symmetric NAT that blocks direct UDP streams. Switch to Google Meet for an instant call, or configure a custom TURN relay in Settings.'
-                        : (callCtx.error || 'Could not establish direct WebRTC connection. Connect directly with Google Meet or verify your network.')}
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-                      {onSwitchToGoogleMeet && (
-                        <button
-                          type="button"
-                          className="primary-button"
-                          style={{ background: '#137333', borderColor: '#137333', gap: 8, padding: '10px 18px', width: '100%', justifyContent: 'center' }}
-                          onClick={onSwitchToGoogleMeet}
-                        >
-                          <GoogleMeetLogo size={18}/> Switch to Google Meet (Instant)
-                        </button>
-                      )}
-                      {onOpenSettings && (
-                        <button
-                          type="button"
-                          className="outline-button"
-                          style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', fontSize: 12, padding: '8px 14px', width: '100%', justifyContent: 'center' }}
-                          onClick={onOpenSettings}
-                        >
-                          <Settings size={14}/> Settings & TURN Relay
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="stage-orb"/>
-                    <div className={`stage-avatar avatar-${person.color || 'peach'}`}>{person.initials}</div>
-                    <b>{person.role === 'host' ? 'Your person will appear here' : 'Waiting for the host to connect'}</b>
-                    <span>{callCtx.status}</span>
-                  </>
-                )}
-              </div>
-            )}
-            <label>{callCtx.remoteStream ? callCtx.peerName : 'Waiting'}</label>
-          </div>
-
-          {/* Local Video Tile */}
-          <div className={`video-tile local-tile ${isScreenSharing ? 'is-screen-share' : ''}`}>
-            {callCtx.localStream ? (
-              <video ref={localVideo} autoPlay playsInline muted/>
-            ) : (
-              <div className="video-placeholder">Camera preview</div>
-            )}
-            <label>{isScreenSharing ? 'Your screen' : 'You'}</label>
-          </div>
-
-          {/* In-Call Live Chat Drawer */}
-          {showChat && (
-            <div className="call-chat-drawer">
-              <div className="chat-header">
-                <span>In-Call Chat</span>
-                <button
-                  className="icon-button"
-                  style={{ width: 24, height: 24, border: 0 }}
-                  onClick={() => setShowChat(false)}
-                >
-                  <X size={16}/>
-                </button>
-              </div>
-
-              <div className="chat-messages">
-                {chatMessages.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: 'var(--ink-muted)', fontSize: '11px', marginTop: 24 }}>
-                    Messages are private between you two and disappear when the call ends.
-                  </div>
-                ) : (
-                  chatMessages.map((m) => (
-                    <div key={m.id} className={`chat-msg ${m.sender}`}>
-                      {m.text}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Gentle Reaction Emoji Bar */}
-              <div className="reaction-bar">
-                {['❤️', '✨', '👋', '🌸', '☕'].map((emoji) => (
-                  <button
-                    key={emoji}
-                    className="reaction-btn"
-                    onClick={() => sendReaction(emoji)}
-                    title={`Send ${emoji}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-
-              <form className="chat-input-row" onSubmit={sendChatMessage}>
-                <input
-                  placeholder="Send a quiet note…"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                />
-                <button type="submit" className="primary-button" style={{ padding: '8px 12px' }}>
-                  <Send size={14}/>
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
-
-        {/* Live Status Bar */}
-        <div className="live-status" role="status" aria-live="polite">
-          {callCtx.error ? (
-            <><span className="error-dot"/>{callCtx.error}</>
-          ) : (
-            <><span className="live-dot" style={{ width: 7, height: 7 }}/>{callCtx.status}</>
-          )}
-        </div>
-
-        {/* Invite Link Sharing Bar */}
-        <div className="invite-strip">
-          <div>
-            <b>Invite someone into this room</b>
-            <span>Anyone with this link can join. Share only with someone you trust.</span>
-          </div>
-          <button className="outline-button" onClick={copyInvite}>
-            <Plus size={16}/>{callCtx.copied ? 'Copied invite' : 'Copy invite link'}
-          </button>
-        </div>
-
-        {/* Call Controls */}
-        <div className="call-controls">
-          <button
-            className={!callCtx.micEnabled ? 'control-off' : ''}
-            onClick={() => toggleTrack('audio')}
-            aria-label={callCtx.micEnabled ? 'Mute microphone' : 'Unmute microphone'}
-          >
-            <span>{callCtx.micEnabled ? <Mic size={20}/> : <MicOff size={20}/>}</span>
-            {callCtx.micEnabled ? 'Mic on' : 'Mic off'}
-          </button>
-
-          <button
-            className={!callCtx.cameraEnabled ? 'control-off' : ''}
-            onClick={() => toggleTrack('video')}
-            aria-label={callCtx.cameraEnabled ? 'Turn camera off' : 'Turn camera on'}
-          >
-            <span>{callCtx.cameraEnabled ? <Video size={20}/> : <VideoOff size={20}/>}</span>
-            {callCtx.cameraEnabled ? 'Camera on' : 'Camera off'}
-          </button>
-
-          <button
-            className={isScreenSharing ? 'control-active' : ''}
-            onClick={toggleScreenShare}
-            title={isScreenSharing ? 'Stop screen sharing' : 'Share your screen'}
-          >
-            <span>{isScreenSharing ? <MonitorOff size={20}/> : <Monitor size={20}/>}</span>
-            {isScreenSharing ? 'Sharing' : 'Share screen'}
-          </button>
-
-          <button
-            className={showChat ? 'control-active' : ''}
-            onClick={() => setShowChat(!showChat)}
-            title="In-call chat"
-          >
-            <span><MessageCircle size={20}/></span>
-            Chat
-          </button>
-
-          <button className="end-call" onClick={onClose}>
-            <span><Phone size={20}/></span>
-            End call
-          </button>
-        </div>
-
-        <div className="call-footnote">
-          Your audio and video are sent directly between devices when possible. Saantvana does not record or store your call.
-        </div>
-      </section>
-    </div>
-  );
-}
-
-// Add Connection Modal with optional Google Meet link
 function ConnectionFormModal({ onClose, onSave }) {
   const [name, setName] = useState('');
   const [group, setGroup] = useState('Friends');
@@ -2608,16 +1954,11 @@ function EditConnectionModal({ contact, onClose, onSave, onDelete }) {
 
 // Settings & Preferences Modal with Theme & Defaults
 function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCount, onExportData, onClearAll }) {
-  const [name, setName] = useState(profile.name);
-  const [space, setSpace] = useState(profile.space);
+  const [name, setName] = useState(profile.name || '');
+  const [space, setSpace] = useState(profile.space || '');
   const [color, setColor] = useState(profile.color || 'lilac');
   const [theme, setTheme] = useState(profile.theme || 'light');
-  const [defaultMic, setDefaultMic] = useState(profile.defaultMic ?? true);
-  const [defaultCam, setDefaultCam] = useState(profile.defaultCam ?? true);
-  const [signalUrl, setSignalUrl] = useState(profile.signalUrl || '');
-  const [turnServer, setTurnServer] = useState(profile.turnServer || '');
-  const [turnUsername, setTurnUsername] = useState(profile.turnUsername || '');
-  const [turnCredential, setTurnCredential] = useState(profile.turnCredential || '');
+  const [defaultMeetLink, setDefaultMeetLink] = useState(profile.defaultMeetLink || '');
 
   const colors = [
     { id: 'lilac', hex: '#e9e3f6', label: 'Lilac' },
@@ -2634,12 +1975,7 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
       space: space.trim() || 'My space',
       color,
       theme,
-      defaultMic,
-      defaultCam,
-      signalUrl: signalUrl.trim(),
-      turnServer: turnServer.trim(),
-      turnUsername: turnUsername.trim(),
-      turnCredential: turnCredential.trim()
+      defaultMeetLink: defaultMeetLink.trim()
     });
   };
 
@@ -2649,7 +1985,7 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
         <div className="call-top">
           <div>
             <span className="call-status">PREFERENCES</span>
-            <h2 id="settings-title">Profile & Privacy Settings</h2>
+            <h2 id="settings-title">Profile & Preferences</h2>
           </div>
           <button className="icon-button" aria-label="Close" onClick={onClose}>
             <X size={20}/>
@@ -2662,11 +1998,11 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
             <input
               id="prof-name"
               maxLength={48}
-              required
               value={name}
+              placeholder="e.g. Alex Morgan"
               onChange={(e) => setName(e.target.value)}
             />
-            <small>Used when joining presence calls and greeting you in your space.</small>
+            <small>Used when sharing meeting invitations and greeting you in your space.</small>
           </div>
 
           <div className="settings-item">
@@ -2675,6 +2011,7 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
               id="prof-space"
               maxLength={48}
               value={space}
+              placeholder="e.g. Personal wellbeing"
               onChange={(e) => setSpace(e.target.value)}
             />
           </div>
@@ -2715,65 +2052,15 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
           </div>
 
           <div className="settings-item">
-            <label>Call Defaults</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '13px', fontWeight: 'normal', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={defaultMic}
-                  onChange={(e) => setDefaultMic(e.target.checked)}
-                />
-                Start calls with microphone on
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '13px', fontWeight: 'normal', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={defaultCam}
-                  onChange={(e) => setDefaultCam(e.target.checked)}
-                />
-                Start calls with camera on
-              </label>
-            </div>
-          </div>
-
-          <div className="settings-item">
-            <label htmlFor="prof-signal">WebRTC Signaling Server URL (Optional)</label>
+            <label htmlFor="prof-meet">Default Personal Google Meet Link (Optional)</label>
             <input
-              id="prof-signal"
-              placeholder="wss://your-signaling-app.onrender.com/signal"
-              value={signalUrl}
-              onChange={(e) => setSignalUrl(e.target.value)}
+              id="prof-meet"
+              placeholder="e.g. meet.google.com/abc-defg-hij or your personal room"
+              value={defaultMeetLink}
+              onChange={(e) => setDefaultMeetLink(e.target.value)}
             />
             <small>
-              Static hosts (GitHub Pages) require a WebSocket backend for native calls. Leave empty to use Google Meet or local default.
-            </small>
-          </div>
-
-          <div className="settings-item">
-            <label htmlFor="prof-turn">Custom TURN Relay Server (Optional)</label>
-            <input
-              id="prof-turn"
-              placeholder="e.g. turn:openrelay.metered.ca:443 or turn:your-server.com:443"
-              value={turnServer}
-              onChange={(e) => setTurnServer(e.target.value)}
-            />
-            {turnServer && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
-                <input
-                  placeholder="Username (optional)"
-                  value={turnUsername}
-                  onChange={(e) => setTurnUsername(e.target.value)}
-                />
-                <input
-                  type="password"
-                  placeholder="Password / Credential"
-                  value={turnCredential}
-                  onChange={(e) => setTurnCredential(e.target.value)}
-                />
-              </div>
-            )}
-            <small>
-              Bypasses symmetric NAT on strict 4G/5G mobile carriers. Built-in OpenRelay and Google STUN are enabled by default.
+              If provided, this room is used by default when you start Google Meet. Leave empty to auto-generate a new room code on each call.
             </small>
           </div>
 
@@ -2836,10 +2123,10 @@ function HowItWorksModal({ onClose }) {
 
         <div className="tab-row">
           <button className={`tab-btn ${guideTab === 'calls' ? 'active' : ''}`} onClick={() => setGuideTab('calls')}>
-            Private Calling & Meet
+            Google Meet & Calling
           </button>
-          <button className={`tab-btn ${guideTab === 'screenshare' ? 'active' : ''}`} onClick={() => setGuideTab('screenshare')}>
-            Screen Sharing & Calls
+          <button className={`tab-btn ${guideTab === 'wellbeing' ? 'active' : ''}`} onClick={() => setGuideTab('wellbeing')}>
+            Mindfulness & Grounding
           </button>
           <button className={`tab-btn ${guideTab === 'privacy' ? 'active' : ''}`} onClick={() => setGuideTab('privacy')}>
             Privacy Principles
@@ -2851,21 +2138,24 @@ function HowItWorksModal({ onClose }) {
 
         {guideTab === 'calls' && (
           <div className="guide-section">
-            <span className="guide-badge"><Video size={15}/> WebRTC P2P & Google Meet</span>
-            <h3>Connect How You Feel Comfortable</h3>
-            <p>Saantvana gives you two ways to connect with people you care about:</p>
-            <p><b>1. Saantvana Presence Calls:</b> One-to-one direct peer-to-peer WebRTC calls. Media streams travel directly between devices with zero cloud recording, ephemeral room links, in-call chat, and reactions.</p>
-            <p><b>2. Google Meet:</b> Launch an instant Google Meet room or connect to a saved room link in one click. Saantvana copies your invitation message and stays open as a calm post-call companion.</p>
+            <span className="guide-badge"><Video size={15}/> Google Meet Integration</span>
+            <h3>Crystal-Clear, Reliable Video Calling</h3>
+            <p>Saantvana uses Google Meet as its primary calling engine for effortless, reliable communication:</p>
+            <p><b>1. Instant 1-Click Rooms:</b> Generate a brand new, private Google Meet room instantly or save custom recurring links for your trusted contacts.</p>
+            <p><b>2. 1-Tap Sharing via WhatsApp & Link:</b> Send an invite directly to your contact over WhatsApp or copy the invitation message in one click.</p>
+            <p><b>3. Cellular & 5G/4G Reliability:</b> Google Meet handles carrier NAT traversal, adaptive bitrates, AI background noise removal, and crystal-clear screen sharing across Android, iOS, Windows, Mac, and Linux.</p>
+            <p><b>4. Calm Companion Mode:</b> While you talk, Saantvana stays open as a peaceful space for pre-call grounding and post-call reflection.</p>
           </div>
         )}
 
-        {guideTab === 'screenshare' && (
+        {guideTab === 'wellbeing' && (
           <div className="guide-section">
-            <span className="guide-badge"><Monitor size={15}/> 1:1 Direct WebRTC</span>
-            <h3>Crystal-Clear Screen Sharing & Calling</h3>
-            <p>Saantvana provides real-time WebRTC calling and full-screen sharing without cropping, distortion, or artificial lag.</p>
-            <p><b>Full Screen Aspect Ratio:</b> Screen sharing uses responsive aspect-ratio containment so that code, documents, and slides are never cut off or cropped at the edges.</p>
-            <p><b>Zero Cloud Recording:</b> Video, audio, screen feeds, and in-call chat pass directly between devices. No recordings or frames are ever stored on cloud servers.</p>
+            <span className="guide-badge"><Activity size={15}/> Somatic Tools</span>
+            <h3>Mindful Pauses & 5-4-3-2-1 Sensory Grounding</h3>
+            <p>Saantvana is designed around nervous system care and gentle presence:</p>
+            <p><b>Guided Breathing Pause:</b> 1-minute, 2-minute, or 3-minute soothing breath cycles with gentle acoustic chimes to decompress before or after deep conversations.</p>
+            <p><b>5-4-3-2-1 Sensory Grounding:</b> Step-by-step interactive somatic grounding (sight, touch, sound, scent, gratitude) to settle acute stress or anxiety.</p>
+            <p><b>Private Reflections:</b> Local, un-scored journaling prompts to help you articulate what matters most.</p>
           </div>
         )}
 

@@ -2,7 +2,7 @@
 
 A calm, consent-led connection and wellbeing web application designed to foster emotional presence without pressure.
 
-[![Live on Render](https://img.shields.io/badge/Live%20App-Render-46E3B7?logo=render&logoColor=black)](https://saantvana.onrender.com/)
+[![Live on Custom Domain](https://img.shields.io/badge/Live%20App-hareramkushwaha.com.np-6e56cf?logo=google-chrome&logoColor=white)](https://hareramkushwaha.com.np/Saantvana/)
 [![Live on GitHub Pages](https://img.shields.io/badge/Live%20App-GitHub%20Pages-2ea44f?logo=github)](https://ha-re-ram.github.io/Saantvana/)
 [![CI](https://github.com/ha-re-ram/Saantvana/actions/workflows/ci.yml/badge.svg)](https://github.com/ha-re-ram/Saantvana/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -11,11 +11,11 @@ A calm, consent-led connection and wellbeing web application designed to foster 
 
 ## 🌟 Key Highlights
 
-- **Direct Google Meet by Default**: Launch instant, high-definition Google Meet rooms in one click with automated invitation copying and calm companion mode.
-- **Private 1:1 Video Calls**: Direct peer-to-peer WebRTC video and audio calls with STUN assistance, in-call chat, screen sharing, and live reactions.
-- **Aspect-Preserving Screen Sharing**: Crisp screen sharing that never crops or trims edges, ensuring code, slides, and documents remain 100% visible.
+- **Direct Google Meet by Default**: Launch instant, high-definition Google Meet rooms in one click with automated invitation copying, WhatsApp direct sharing, and calm companion mode.
+- **Works Universally on All Networks**: Zero dropped calls or carrier NAT blocks on 5G/4G cellular networks and strict Wi-Fi firewalls.
+- **Calm Companion Experience**: Saantvana stays open during and after calls with a session timer, grounding reminders, and mindful pause options.
 - **Mindful Pauses**: Guided breathing exercises with customizable durations (1 min, 2 min, 3 min) and gentle synthesized audio chimes.
-- **5-4-3-2-1 Sensory Grounding**: Step-by-step grounding tool to reset attention in moments of overwhelm.
+- **5-4-3-2-1 Sensory Grounding**: Step-by-step somatic sensory grounding tool to reset attention in moments of stress or overwhelm.
 - **Private by Default**: Saved contacts, check-ins, and reflections remain strictly in your device's browser storage (`localStorage`). No tracking or cloud databases.
 - **Responsive Mobile Experience**: Clean bottom navigation bar, dynamic viewport sizing (`100dvh`), and offline app-shell caching.
 
@@ -25,7 +25,7 @@ A calm, consent-led connection and wellbeing web application designed to foster 
 
 ### 1. Use the Live Web Application
 You can use the application immediately in any modern browser on mobile, tablet, or desktop:
-- **Render (Full-Stack WebRTC + Signaling)**: [https://saantvana.onrender.com/](https://saantvana.onrender.com/)
+- **Custom Domain**: [https://hareramkushwaha.com.np/Saantvana/](https://hareramkushwaha.com.np/Saantvana/)
 - **GitHub Pages**: [https://ha-re-ram.github.io/Saantvana/](https://ha-re-ram.github.io/Saantvana/)
 
 ---
