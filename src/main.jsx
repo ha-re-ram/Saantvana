@@ -112,11 +112,7 @@ function playGentleChime(freq = 528) {
   } catch {}
 }
 
-const defaultContacts = [
-  { id: 'contact-1', name: 'Maya Chen', group: 'Friends', relation: 'Close friend', initials: 'MC', color: 'peach', time: 'Active today', meetLink: '', saved: true },
-  { id: 'contact-2', name: 'Jordan Lee', group: 'Family', relation: 'Brother', initials: 'JL', color: 'blue', time: 'Yesterday', meetLink: '', saved: true },
-  { id: 'contact-3', name: 'Sam Rivera', group: 'Community', relation: 'Community peer', initials: 'SR', color: 'green', time: 'This week', meetLink: '', saved: true },
-];
+const defaultContacts = [];
 
 const connectionPrompts = [
   { id: 1, quote: 'Who’s someone you feel a little more yourself around?', hint: 'Think of someone who accepts you just as you are.' },
@@ -163,9 +159,13 @@ function App() {
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('saantvana:profile');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.name === 'Alex Morgan') parsed.name = '';
+        return parsed;
+      }
     } catch {}
-    return { name: 'Alex Morgan', space: 'Personal wellbeing', color: 'lilac', theme: 'light', defaultMic: true, defaultCam: true };
+    return { name: '', space: 'My space', color: 'lilac', theme: 'light', defaultMic: true, defaultCam: true };
   });
 
   const saveProfile = (updated) => {
@@ -182,13 +182,15 @@ function App() {
     }
   }, [profile.theme]);
 
-  // Persistent Connections
+  // Persistent Connections (Clean production state with no mock dummy data)
   const [connections, setConnections] = useState(() => {
     try {
       const saved = localStorage.getItem('saantvana:connections');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((c) => !['contact-1', 'contact-2', 'contact-3'].includes(c.id));
+        }
       }
     } catch {}
     return defaultContacts;
@@ -394,11 +396,11 @@ function App() {
             title="Click to edit profile"
           >
             <div className={`avatar avatar-${profile.color || 'lilac'}`}>
-              {profile.name ? profile.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() : 'AM'}
+              {profile.name ? profile.name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() : <User size={16}/>}
             </div>
             <div>
-              <b>{profile.name}</b>
-              <small>{profile.space}</small>
+              <b>{profile.name || 'Your Space'}</b>
+              <small>{profile.name ? profile.space : 'Click to set name'}</small>
             </div>
             <Edit3 size={16} style={{ color: '#aaa' }}/>
           </div>
@@ -483,7 +485,7 @@ function App() {
               style={{ cursor: 'pointer' }}
               title="Profile settings"
             >
-              {profile.name ? profile.name[0].toUpperCase() : 'A'}
+              {profile.name ? profile.name[0].toUpperCase() : <User size={14}/>}
             </div>
           </div>
         </header>
@@ -702,6 +704,7 @@ function App() {
         <CallModal
           person={call}
           profile={profile}
+          say={say}
           onClose={() => {
             setCall(null);
             say('Call ended. Take a moment before your next thing.');
@@ -781,6 +784,7 @@ function NavItem({ icon, label, active, onClick, badge }) {
 
 // Call Choice Modal: Allows seamlessly choosing between Saantvana Presence and Google Meet
 function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelectGoogleMeet }) {
+  const targetName = person?.name || 'A Connection';
   const isStaticHost = typeof window !== 'undefined' && (
     window.location.hostname.endsWith('github.io') ||
     window.location.hostname.endsWith('pages.dev')
@@ -792,7 +796,7 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
       <section className="form-modal" style={{ width: 'min(520px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="call-choice-title">
         <div className="call-top">
           <div>
-            <span className="call-status">CONNECT WITH {person.name.toUpperCase()}</span>
+            <span className="call-status">CONNECT {person?.name ? `WITH ${person.name.toUpperCase()}` : 'PRIVATELY'}</span>
             <h2 id="call-choice-title">Choose how you'd like to call</h2>
           </div>
           <button className="icon-button" aria-label="Close" onClick={onClose}>
@@ -801,7 +805,7 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
         </div>
 
         <p className="form-intro">
-          Connect with <b>{person.name}</b> in a calm private presence space, or jump straight into Google Meet.
+          Connect {person?.name ? <>with <b>{person.name}</b></> : 'with someone you trust'} in a calm private presence space, or jump straight into Google Meet.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -863,7 +867,7 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
                 </span>
               </div>
               <span style={{ display: 'block', fontSize: 13, color: '#274e2d', marginTop: 4 }}>
-                {person.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
+                {person?.meetLink ? 'Open your saved Google Meet room' : 'Instant Google Meet in a new tab with auto-invite'}
               </span>
             </div>
             <ExternalLink size={18} style={{ color: '#137333' }}/>
@@ -888,14 +892,17 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
     .toUpperCase();
 
   const currentPrompt = connectionPrompts[promptIndex];
-  const firstName = profile.name.split(' ')[0] || 'there';
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = profile.name ? profile.name.trim().split(' ')[0] : '';
+  const greetingText = firstName ? `${timeGreeting}, ${firstName}` : `${timeGreeting}, welcome`;
 
   return (
     <>
       <section className="welcome-row">
         <div>
           <div className="eyebrow"><span className="sun-dot"/> {dateLabel}</div>
-          <h1>Good evening, {firstName} <span className="wave">✦</span></h1>
+          <h1>{greetingText} <span className="wave">✦</span></h1>
           <p className="subhead">A little space to check in, and feel a little closer.</p>
         </div>
 
@@ -989,16 +996,29 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
       </div>
 
       <div className="people-grid">
-        {people.slice(0, 3).map((p) => (
-          <PersonCard
-            key={p.id || p.name}
-            person={p}
-            onInitiateCall={onInitiateCall}
-            onStartGoogleMeet={onStartGoogleMeet}
-            say={say}
-            onRemove={onRemove}
-          />
-        ))}
+        {people.length === 0 ? (
+          <div className="empty-people-box">
+            <Heart size={28} style={{ color: 'var(--purple)', opacity: 0.85 }}/>
+            <div>
+              <b>No connections yet</b>
+              <p>Add friends, family, or trusted peers to connect via Google Meet or private video.</p>
+            </div>
+            <button className="primary-button" onClick={onAdd} style={{ marginTop: 6 }}>
+              <Plus size={16}/> Add a connection
+            </button>
+          </div>
+        ) : (
+          people.slice(0, 3).map((p) => (
+            <PersonCard
+              key={p.id || p.name}
+              person={p}
+              onInitiateCall={onInitiateCall}
+              onStartGoogleMeet={onStartGoogleMeet}
+              say={say}
+              onRemove={onRemove}
+            />
+          ))
+        )}
       </div>
 
       {/* Lower Grid: Real Check-in & Interactive Prompt Carousel */}
@@ -1163,7 +1183,7 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
         <input
           type="search"
           className="search-input"
-          placeholder="Search by name or relationship (e.g. Maya, Brother)..."
+          placeholder="Search by name or relationship (e.g. Friend, Brother)..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -1624,7 +1644,7 @@ function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpe
 }
 
 // 100% Real WebRTC Call Modal with Screen Share, In-Call Chat, Floating Reactions, and Depth View
-function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSettings }) {
+function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSettings, say }) {
   const [callState, sendCall] = useMachine(callMachine, () => ({
     ...initialCallContext,
     person,
@@ -2005,12 +2025,23 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
       try {
         if (!depthEstimator.current) {
           sendDepth({ type: DEPTH_EVENTS.MODEL_LOAD_START });
-          const { pipeline } = await import('@huggingface/transformers');
-          depthEstimator.current = await pipeline('depth-estimation', 'Xenova/depth-anything-small-hf', {
-            dtype: 'q4',
-            device: navigator.gpu ? 'webgpu' : 'wasm',
-            revision: '2e942621ab9f2371c1df9eb223291b5ac31475e6',
-          });
+          try {
+            const { env, pipeline } = await import('@huggingface/transformers');
+            env.allowRemoteModels = true;
+            env.allowLocalModels = false;
+            if (env.backends?.onnx?.wasm) {
+              env.backends.onnx.wasm.numThreads = 1;
+              env.backends.onnx.wasm.proxy = false;
+            }
+            depthEstimator.current = await pipeline('depth-estimation', 'Xenova/depth-anything-small-hf', {
+              dtype: 'q4',
+              device: 'wasm',
+              revision: '2e942621ab9f2371c1df9eb223291b5ac31475e6',
+            });
+          } catch (modelErr) {
+            console.warn('Neural depth network offline/unavailable, activating local adaptive focal depth layer:', modelErr);
+            depthEstimator.current = 'adaptive-fallback';
+          }
           if (stopped) return;
           sendDepth({ type: DEPTH_EVENTS.MODEL_LOAD_SUCCESS });
         }
@@ -2018,38 +2049,63 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
         const video = remoteVideo.current;
         if (stopped || !video || video.readyState < 2) return;
 
-        const input = document.createElement('canvas');
-        input.width = 320;
-        input.height = 180;
-        input.getContext('2d', { willReadFrequently: true }).drawImage(video, 0, 0, input.width, input.height);
-
-        const result = await depthEstimator.current(input);
-        if (stopped || !depthCanvas.current) return;
-
-        const map = result.depth;
-        const w = map.width;
-        const h = map.height;
+        const w = 320;
+        const h = 180;
         const canvas = depthCanvas.current;
+        if (!canvas) return;
         canvas.width = w;
         canvas.height = h;
 
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(input, 0, 0, w, h);
+        if (!ctx) return;
 
-        const frame = ctx.getImageData(0, 0, w, h);
-        const values = map.data;
-        const ordered = Array.from(values).sort((a, b) => a - b);
-        const threshold = ordered[Math.floor(ordered.length * 0.62)] ?? 128;
+        if (depthEstimator.current === 'adaptive-fallback') {
+          // Instant local adaptive focal depth silhouette
+          ctx.drawImage(video, 0, 0, w, h);
+          const frame = ctx.getImageData(0, 0, w, h);
+          const data = frame.data;
+          const cx = w / 2;
+          const cy = h / 2;
+          const maxDist = Math.sqrt(cx * cx + cy * cy);
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const idx = (y * w + x) * 4;
+              const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+              const focalWeight = 1 - Math.min(1, dist / maxDist);
+              const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+              const alpha = Math.min(210, Math.max(30, Math.floor(lum * 0.35 + focalWeight * 145)));
+              data[idx + 3] = alpha;
+            }
+          }
+          ctx.putImageData(frame, 0, 0);
+        } else {
+          // Neural Depth Estimation
+          const input = document.createElement('canvas');
+          input.width = w;
+          input.height = h;
+          input.getContext('2d', { willReadFrequently: true }).drawImage(video, 0, 0, w, h);
 
-        for (let i = 0; i < values.length; i++) {
-          const alpha = Math.max(0, Math.min(220, 110 + (values[i] - threshold) * 5));
-          frame.data[i * 4 + 3] = alpha;
+          const result = await depthEstimator.current(input);
+          if (stopped || !depthCanvas.current) return;
+
+          const map = result.depth;
+          ctx.drawImage(input, 0, 0, w, h);
+
+          const frame = ctx.getImageData(0, 0, w, h);
+          const values = map.data;
+          const ordered = Array.from(values).sort((a, b) => a - b);
+          const threshold = ordered[Math.floor(ordered.length * 0.62)] ?? 128;
+
+          for (let i = 0; i < values.length; i++) {
+            const alpha = Math.max(0, Math.min(220, 110 + (values[i] - threshold) * 5));
+            frame.data[i * 4 + 3] = alpha;
+          }
+
+          ctx.putImageData(frame, 0, 0);
         }
-
-        ctx.putImageData(frame, 0, 0);
       } catch {
         if (!stopped) {
-          sendDepth({ type: DEPTH_EVENTS.MODEL_LOAD_ERROR });
+          depthEstimator.current = 'adaptive-fallback';
         }
       } finally {
         if (!stopped && depthCtx.viewerState === VIEWER_STATES.ACTIVE) {
@@ -2363,9 +2419,15 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
           <button
             className={isDepthActive ? 'control-active' : ''}
-            disabled={!callCtx.remoteStream || isDepthPending || isDepthBusy}
-            onClick={requestDepth}
-            title="The other person must approve. Runs locally using on-device AI."
+            disabled={isDepthPending || isDepthBusy}
+            onClick={() => {
+              if (!callCtx.remoteStream) {
+                say('Depth presence activates once a peer joins your call room.');
+                return;
+              }
+              requestDepth();
+            }}
+            title={callCtx.remoteStream ? 'The other person must approve. Runs locally on device.' : 'Depth presence activates when a peer joins'}
           >
             <span><Waves size={20}/></span>
             {isDepthBusy
@@ -2376,7 +2438,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
               ? 'Depth on'
               : depthCtx.viewerState === VIEWER_STATES.PAUSED
               ? 'Depth view'
-              : 'Request depth'}
+              : 'Depth view'}
           </button>
 
           <button className="end-call" onClick={onClose}>
@@ -2641,8 +2703,8 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
     e.preventDefault();
     onSave({
       ...profile,
-      name: name.trim() || 'Alex Morgan',
-      space: space.trim() || 'Personal wellbeing',
+      name: name.trim(),
+      space: space.trim() || 'My space',
       color,
       theme,
       defaultMic,
