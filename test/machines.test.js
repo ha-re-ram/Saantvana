@@ -30,6 +30,11 @@ import {
   MODAL_STATES,
   MODAL_EVENTS
 } from '../src/machines/modalMachine.js';
+import {
+  menuMachine,
+  MENU_STATES,
+  MENU_EVENTS
+} from '../src/machines/menuMachine.js';
 
 test('createMachine: basic transitions and guards', () => {
   const toggle = createMachine({
@@ -393,4 +398,33 @@ test('modalMachine: single-dialog overlay coordination without collision', () =>
 
   s = modalMachine.transition(s.value, s.context, { type: MODAL_EVENTS.CLOSE });
   assert.equal(s.value, MODAL_STATES.IDLE);
+});
+
+test('menuMachine: mutually exclusive popovers and dismissal', () => {
+  let s = menuMachine.getInitialState();
+  assert.equal(s.value, MENU_STATES.CLOSED);
+  assert.equal(s.context.activeMenu, null);
+
+  // Toggle notifications open
+  s = menuMachine.transition(s.value, s.context, { type: MENU_EVENTS.TOGGLE_NOTIFICATIONS });
+  assert.equal(s.value, MENU_STATES.NOTIFICATIONS);
+  assert.equal(s.context.activeMenu, MENU_STATES.NOTIFICATIONS);
+
+  // Switching directly to quick actions closes notifications
+  s = menuMachine.transition(s.value, s.context, { type: MENU_EVENTS.OPEN_QUICK_ACTIONS });
+  assert.equal(s.value, MENU_STATES.QUICK_ACTIONS);
+  assert.equal(s.context.activeMenu, MENU_STATES.QUICK_ACTIONS);
+
+  // Toggling workspace closes quick actions and opens workspace
+  s = menuMachine.transition(s.value, s.context, { type: MENU_EVENTS.TOGGLE_WORKSPACE });
+  assert.equal(s.value, MENU_STATES.WORKSPACE);
+
+  // Toggle workspace again closes it
+  s = menuMachine.transition(s.value, s.context, { type: MENU_EVENTS.TOGGLE_WORKSPACE });
+  assert.equal(s.value, MENU_STATES.CLOSED);
+  assert.equal(s.context.activeMenu, null);
+
+  // Close when already closed is a safe no-op
+  s = menuMachine.transition(s.value, s.context, { type: MENU_EVENTS.CLOSE });
+  assert.equal(s.value, MENU_STATES.CLOSED);
 });

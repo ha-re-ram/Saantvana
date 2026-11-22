@@ -71,6 +71,11 @@ import {
   MODAL_STATES,
   MODAL_EVENTS
 } from './machines/modalMachine.js';
+import {
+  menuMachine,
+  MENU_STATES,
+  MENU_EVENTS
+} from './machines/menuMachine.js';
 
 // Official Google Meet Logo
 function GoogleMeetLogo({ size = 18 }) {
@@ -139,9 +144,19 @@ function App() {
   const openEditConnection = (contact) => sendModal({ type: MODAL_EVENTS.OPEN_EDIT_CONNECTION, contact });
   const openCallChoice = (person) => sendModal({ type: MODAL_EVENTS.OPEN_CALL_CHOICE, person });
 
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
-  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [wellbeingTab, setWellbeingTab] = useState('pause');
+
+  // Popovers & Menus State Machine (UX/DX/AX: Mutually exclusive, zero overlapping popovers)
+  const [menuState, sendMenu] = useMachine(menuMachine);
+  const showNotifications = menuState.matches(MENU_STATES.NOTIFICATIONS);
+  const showWorkspaceMenu = menuState.matches(MENU_STATES.WORKSPACE);
+  const showQuickActions = menuState.matches(MENU_STATES.QUICK_ACTIONS);
+
+  const closeMenu = () => sendMenu({ type: MENU_EVENTS.CLOSE });
+  const toggleNotifications = () => sendMenu({ type: MENU_EVENTS.TOGGLE_NOTIFICATIONS });
+  const toggleWorkspaceMenu = () => sendMenu({ type: MENU_EVENTS.TOGGLE_WORKSPACE });
+  const toggleQuickActions = () => sendMenu({ type: MENU_EVENTS.TOGGLE_QUICK_ACTIONS });
+
   const [activePromptText, setActivePromptText] = useState('');
 
   // Call sessions
@@ -215,9 +230,16 @@ function App() {
     { id: 3, title: 'Mindful pause', desc: 'Take a 60-second breathing pause when you need one.', time: 'Today', unread: false }
   ]);
 
+  const noticeTimerRef = useRef(null);
   const say = (text) => {
+    if (noticeTimerRef.current) {
+      window.clearTimeout(noticeTimerRef.current);
+    }
     setNotice(text);
-    window.setTimeout(() => setNotice(''), 3200);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice('');
+      noticeTimerRef.current = null;
+    }, 3200);
   };
 
   useEffect(() => {
@@ -310,19 +332,34 @@ function App() {
     }
   };
 
-  const go = (name) => {
+  const go = (name, targetTab = 'pause') => {
     setPage(name);
+    if (name === 'Wellbeing') {
+      setWellbeingTab(targetTab);
+    }
     setMobileNav(false);
+    closeMenu();
   };
+
+  // Global Escape Key Listener for Modals and Popovers
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (!menuState.matches(MENU_STATES.CLOSED)) {
+          closeMenu();
+        } else if (!modalState.matches(MODAL_STATES.IDLE)) {
+          closeModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [menuState.value, modalState.value]);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
-    <div className="app-shell" onClick={() => {
-      if (showNotifications) setShowNotifications(false);
-      if (showWorkspaceMenu) setShowWorkspaceMenu(false);
-      if (showQuickActions) setShowQuickActions(false);
-    }}>
+    <div className="app-shell" onClick={closeMenu}>
       <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
         <a className="brand" href="#home" onClick={(e) => { e.preventDefault(); go('Home'); }}>
           <span className="brand-mark"><MessageCircle size={20}/><i/></span>
@@ -335,7 +372,7 @@ function App() {
           role="button"
           tabIndex={0}
           aria-haspopup="true"
-          onClick={(e) => { e.stopPropagation(); setShowWorkspaceMenu(!showWorkspaceMenu); }}
+          onClick={(e) => { e.stopPropagation(); toggleWorkspaceMenu(); }}
         >
           <div className="workspace-avatar">{profile.space ? profile.space[0].toUpperCase() : 'S'}</div>
           <div><b>Your space</b><small>{profile.space}</small></div>
@@ -351,7 +388,7 @@ function App() {
                 className="popover-item"
                 onClick={() => {
                   saveProfile({ ...profile, space: sp });
-                  setShowWorkspaceMenu(false);
+                  closeMenu();
                   say(`Switched to "${sp}".`);
                 }}
               >
@@ -436,7 +473,7 @@ function App() {
                 aria-label="Notifications"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowNotifications(!showNotifications);
+                  toggleNotifications();
                   setNotifications(notifications.map((n) => ({ ...n, unread: false })));
                 }}
               >
@@ -572,7 +609,8 @@ function App() {
                 go('Wellbeing');
               }}
               showQuickActions={showQuickActions}
-              setShowQuickActions={setShowQuickActions}
+              onToggleQuickActions={toggleQuickActions}
+              onCloseQuickActions={closeMenu}
             />
           )}
 
@@ -598,6 +636,8 @@ function App() {
               reflections={reflections}
               saveReflections={saveReflections}
               onOpenCrisis={openCrisis}
+              activeTab={wellbeingTab}
+              setActiveTab={setWellbeingTab}
             />
           )}
 
@@ -849,7 +889,21 @@ function CallChoiceModal({ person, profile, onClose, onSelectSaantvana, onSelect
 }
 
 // Interactive Home Page with Real Carousel, Live Actions, & Google Meet
-function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people, onRemove, onAdd, onOpenGuide, onPromptSelect, showQuickActions, setShowQuickActions }) {
+function HomePage({
+  profile,
+  onInitiateCall,
+  onStartGoogleMeet,
+  go,
+  say,
+  people,
+  onRemove,
+  onAdd,
+  onOpenGuide,
+  onPromptSelect,
+  showQuickActions,
+  onToggleQuickActions,
+  onCloseQuickActions
+}) {
   const [checkIn, setCheckIn] = useState('');
   const [promptIndex, setPromptIndex] = useState(0);
 
@@ -877,34 +931,37 @@ function HomePage({ profile, onInitiateCall, onStartGoogleMeet, go, say, people,
           <button
             className="round-more"
             aria-label="More options"
-            onClick={(e) => { e.stopPropagation(); setShowQuickActions(!showQuickActions); }}
+            onClick={(e) => { e.stopPropagation(); onToggleQuickActions ? onToggleQuickActions() : null; }}
           >
             <MoreHorizontal size={22}/>
           </button>
 
           {showQuickActions && (
             <div className="popover-menu" style={{ right: 0, top: 48 }} onClick={(e) => e.stopPropagation()}>
-              <button className="popover-item" onClick={() => { setShowQuickActions(false); onInitiateCall(people[0]); }}>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onInitiateCall(people[0]); }}>
                 <Video size={17}/> Create presence call
               </button>
-              <button className="popover-item" onClick={() => { setShowQuickActions(false); onStartGoogleMeet(); }}>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onStartGoogleMeet(); }}>
                 <GoogleMeetLogo size={17}/> Instant Google Meet
               </button>
-              <button className="popover-item" onClick={() => { setShowQuickActions(false); onAdd(); }}>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onAdd(); }}>
                 <Plus size={17}/> Add connection
               </button>
-              <button className="popover-item" onClick={() => { setShowQuickActions(false); go('Wellbeing'); }}>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); go('Wellbeing', 'pause'); }}>
                 <Activity size={17}/> Mindful breathing pause
               </button>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); go('Wellbeing', 'grounding'); }}>
+                <ShieldCheck size={17}/> 5-4-3-2-1 Sensory grounding
+              </button>
               <button className="popover-item" onClick={() => {
-                setShowQuickActions(false);
+                onCloseQuickActions?.();
                 const roomCode = Array.from(crypto.getRandomValues(new Uint8Array(8)), (n) => n.toString(16).padStart(2, '0')).join('').toUpperCase();
                 navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`);
                 say('Instant room link copied to clipboard.');
               }}>
                 <Share2 size={17}/> Copy instant room link
               </button>
-              <button className="popover-item" onClick={() => { setShowQuickActions(false); onOpenGuide(); }}>
+              <button className="popover-item" onClick={() => { onCloseQuickActions?.(); onOpenGuide(); }}>
                 <CircleHelp size={17}/> How Saantvana works
               </button>
             </div>
@@ -1257,10 +1314,20 @@ function ConnectionsPage({ group, setGroup, people, onInitiateCall, onStartGoogl
 }
 
 // Comprehensive Wellbeing Page with Configurable Pause, 5-4-3-2-1 Grounding, and Saved Reflections
-function WellbeingPage({ say, initialPrompt, reflections, saveReflections, onOpenCrisis }) {
+function WellbeingPage({
+  say,
+  initialPrompt,
+  reflections,
+  saveReflections,
+  onOpenCrisis,
+  activeTab: externalActiveTab,
+  setActiveTab: externalSetActiveTab
+}) {
   const [breathingState, sendBreathing] = useMachine(breathingMachine);
   const [groundingState, sendGrounding] = useMachine(groundingMachine);
-  const [activeTab, setActiveTab] = useState('pause'); // 'pause' | 'grounding'
+  const [internalActiveTab, setInternalActiveTab] = useState('pause'); // 'pause' | 'grounding'
+  const activeTab = externalActiveTab !== undefined ? externalActiveTab : internalActiveTab;
+  const setActiveTab = externalSetActiveTab || setInternalActiveTab;
   const [reflectionText, setReflectionText] = useState(initialPrompt ? `“${initialPrompt}”\n` : '');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
