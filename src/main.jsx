@@ -740,6 +740,7 @@ function App() {
       {/* Mobile Bottom Navigation Bar */}
       <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
         <button
+          type="button"
           className={`mobile-tab-btn ${page === 'Home' ? 'active' : ''}`}
           onClick={() => go('Home')}
         >
@@ -747,6 +748,7 @@ function App() {
           <span>Home</span>
         </button>
         <button
+          type="button"
           className={`mobile-tab-btn ${page === 'Connections' ? 'active' : ''}`}
           onClick={() => go('Connections')}
         >
@@ -755,6 +757,7 @@ function App() {
           {connections.length > 0 && <span className="mobile-badge">{connections.length}</span>}
         </button>
         <button
+          type="button"
           className={`mobile-tab-btn ${page === 'Wellbeing' ? 'active' : ''}`}
           onClick={() => go('Wellbeing')}
         >

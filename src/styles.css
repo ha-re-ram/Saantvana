@@ -355,7 +355,10 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
   border: 1.5px solid #fff;
 }
 
+/* Mobile-only elements hidden on desktop by default */
 .mobile-menu { display: none; }
+.mobile-bottom-bar { display: none !important; }
+.nav-scrim { display: none; }
 
 .page-wrap {
   max-width: 1200px;
@@ -2374,7 +2377,7 @@ button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visib
 
   /* Mobile Bottom Navigation Bar */
   .mobile-bottom-bar {
-    display: flex;
+    display: flex !important;
     position: fixed;
     bottom: 0;
     left: 0;
