@@ -135,26 +135,34 @@ body.dark-mode .profile small {
 
 /* Room / Invite Banner in Dark Mode */
 body.dark-mode .invite-banner {
-  background: #25203d;
-  border-color: #3f3660;
+  background: #1e1a32 !important;
+  border-color: #383058 !important;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
-body.dark-mode .invite-banner b {
-  color: #ffffff;
+body.dark-mode .invite-banner-badge {
+  background: rgba(142, 68, 173, 0.25);
+  color: #d8b4fe;
 }
-body.dark-mode .invite-banner span {
-  color: #dcd6ed;
+body.dark-mode .invite-title {
+  color: #ffffff !important;
 }
-body.dark-mode .invite-name-label {
-  color: #dcd6ed;
+body.dark-mode .invite-sub {
+  color: #c4bcd8 !important;
 }
-body.dark-mode .invite-banner .invite-name {
+body.dark-mode .invite-label-text {
+  color: #a89ec4 !important;
+}
+body.dark-mode .invite-name {
   background: #131120 !important;
   color: #ffffff !important;
   border-color: #4b4170 !important;
 }
-body.dark-mode .invite-banner .icon-button {
-  color: #ffffff;
+body.dark-mode .invite-dismiss-btn {
+  color: #b6aed4 !important;
+}
+body.dark-mode .invite-dismiss-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff !important;
 }
 
 /* Hero Section in Dark Mode */
@@ -481,17 +489,6 @@ body.dark-mode .meet-companion-card .outline-button {
   border-color: #2b613e !important;
 }
 
-/* Invite Banner in Dark Mode */
-body.dark-mode .invite-banner {
-  background: #1c1830 !important;
-  border-color: #383058 !important;
-}
-body.dark-mode .invite-banner b {
-  color: #ffffff !important;
-}
-body.dark-mode .invite-banner span {
-  color: #c4bcd8 !important;
-}
 
 /* Google Meet button & badges in dark mode */
 body.dark-mode .google-meet-btn {
@@ -920,10 +917,11 @@ input:focus-visible {
   color: var(--ink-muted);
   display: flex;
   align-items: center;
+  gap: 6px;
 }
 
-.crumb span {
-  padding: 0 8px;
+.crumb .crumb-slash {
+  padding: 0 4px;
   color: var(--line);
 }
 
@@ -3224,41 +3222,120 @@ body.dark-mode .call-choice-card.meet-choice .choice-arrow {
 /* Invite Banner */
 .invite-banner {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  background: #f1edfb;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface-raised, #f6f3fd);
   border: 1.5px solid #ded5f2;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 16px 20px;
   margin-bottom: 24px;
+  box-shadow: 0 4px 18px rgba(110, 86, 207, 0.08);
 }
 
-.invite-banner b {
-  font-size: 14px;
+.invite-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.invite-banner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--purple);
+  background: rgba(110, 86, 207, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+
+.invite-banner-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.invite-banner-info {
+  flex: 1;
+  min-width: 240px;
+}
+
+.invite-title {
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink);
+  margin: 0 0 4px;
+  line-height: 1.35;
 }
 
-.invite-banner span {
+.invite-sub {
   font-size: 13px;
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.invite-banner-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .invite-name-label {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.invite-label-text {
   font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   color: var(--ink-muted);
 }
 
 .invite-name {
   border: 1.5px solid var(--line);
-  border-radius: 9px;
-  padding: 9px 12px;
+  border-radius: 10px;
+  padding: 10px 14px;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  min-width: 170px;
+  box-sizing: border-box;
+}
+
+.invite-join-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  height: 42px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.invite-dismiss-btn {
+  color: var(--ink-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.invite-dismiss-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ink);
 }
 
 .live-status {
@@ -3515,26 +3592,35 @@ body.dark-mode .call-choice-card.meet-choice .choice-arrow {
     display: grid;
   }
 
-  .crumb span,
-  .crumb>text {
-    display: none;
+  .crumb .crumb-root,
+  .crumb .crumb-slash {
+    display: none !important;
   }
 
   .crumb b {
-    font-size: 16px;
+    font-size: 18px;
+    font-weight: 700;
   }
 
   .private-label {
     display: none !important;
   }
 
-  .google-meet-btn span {
-    display: none;
+  /* Only hide text in topbar header button */
+  .topbar .google-meet-btn span {
+    display: none !important;
   }
 
-  .google-meet-btn {
+  .topbar .google-meet-btn {
     padding: 8px 10px;
     border-radius: 12px;
+  }
+
+  /* Keep full label visible in Hero Card and Connection Actions */
+  .hero-actions .google-meet-btn span,
+  .primary-meet span,
+  .connection-actions .google-meet-btn span {
+    display: inline !important;
   }
 
   .top-actions {
@@ -3546,6 +3632,77 @@ body.dark-mode .call-choice-card.meet-choice .choice-arrow {
     padding: 16px 14px;
     box-sizing: border-box;
     max-width: 100vw;
+  }
+
+  /* Mobile Invite Banner */
+  .invite-banner {
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    gap: 10px;
+  }
+
+  .invite-banner-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .invite-banner-info {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .invite-title {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .invite-sub {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .invite-banner-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .invite-name-label {
+    width: 100%;
+  }
+
+  .invite-name {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px !important;
+    padding: 11px 14px;
+    box-sizing: border-box;
+  }
+
+  .invite-join-btn {
+    width: 100%;
+    height: 46px;
+    font-size: 15px;
+    font-weight: 700;
+    justify-content: center;
+  }
+
+  /* Meet companion card mobile responsiveness */
+  .meet-companion-card {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .companion-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 4px;
   }
 
   .welcome-row {
@@ -3830,5 +3987,42 @@ body.dark-mode .call-choice-card.meet-choice .choice-arrow {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  /* Toast and Install Pill on Mobile - Elevated above bottom navigation bar */
+  .toast {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 60 !important;
+    max-width: calc(100vw - 32px);
+  }
+
+  .install-pill {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 16px !important;
+    z-index: 20;
+  }
+
+  /* Horizontally scrollable tabs on narrow mobile screens */
+  .tab-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+
+  .tab-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+
+  /* Popover dropdowns responsive fit */
+  .popover-menu {
+    max-width: min(320px, calc(100vw - 28px));
   }
 }

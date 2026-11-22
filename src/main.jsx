@@ -456,7 +456,11 @@ function App() {
           <button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setMobileNav(!mobileNav)}>
             <Menu size={22}/>
           </button>
-          <div className="crumb">Your space <span>/</span> <b>{page}</b></div>
+          <div className="crumb">
+            <span className="crumb-root">Your space</span>
+            <span className="crumb-slash">/</span>
+            <b>{page}</b>
+          </div>
           <div className="top-actions">
             {/* Quick Google Meet Launcher */}
             <button
@@ -562,49 +566,63 @@ function App() {
           )}
 
           {inviteRoom && (
-            <div className="invite-banner">
-              <div>
-                <b>You’ve been invited to a Saantvana presence call</b>
-                <span>Room {inviteRoom} · camera and microphone are requested only when you join.</span>
+            <section className="invite-banner" aria-label="Presence call invitation">
+              <div className="invite-banner-header">
+                <div className="invite-banner-badge">
+                  <span className="live-dot"/>
+                  <span>Room {inviteRoom}</span>
+                </div>
+                <button
+                  className="icon-button invite-dismiss-btn"
+                  aria-label="Dismiss invitation"
+                  title="Dismiss invitation"
+                  onClick={() => {
+                    setInviteRoom('');
+                    history.replaceState({}, '', location.pathname);
+                  }}
+                >
+                  <X size={18}/>
+                </button>
               </div>
-              <label className="invite-name-label">
-                Your name
-                <input
-                  className="invite-name"
-                  maxLength={48}
-                  placeholder={profile.name}
-                  value={inviteName}
-                  onChange={(event) => setInviteName(event.target.value)}
-                />
-              </label>
-              <button
-                className="primary-button"
-                onClick={() => {
-                  const name = inviteName.trim() || profile.name;
-                  startSaantvanaCall(
-                    {
-                      name,
-                      initials: name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase(),
-                      color: profile.color || 'lilac'
-                    },
-                    inviteRoom,
-                    name
-                  );
-                }}
-              >
-                Join call <ArrowRight size={16}/>
-              </button>
-              <button
-                className="icon-button"
-                aria-label="Dismiss invitation"
-                onClick={() => {
-                  setInviteRoom('');
-                  history.replaceState({}, '', location.pathname);
-                }}
-              >
-                <X size={16}/>
-              </button>
-            </div>
+
+              <div className="invite-banner-body">
+                <div className="invite-banner-info">
+                  <h3 className="invite-title">You’ve been invited to a Saantvana presence call</h3>
+                  <p className="invite-sub">Camera and microphone are requested only when you join.</p>
+                </div>
+
+                <div className="invite-banner-actions">
+                  <label className="invite-name-label">
+                    <span className="invite-label-text">Your name</span>
+                    <input
+                      className="invite-name"
+                      maxLength={48}
+                      placeholder={profile.name || 'Your name'}
+                      value={inviteName}
+                      onChange={(event) => setInviteName(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="primary-button invite-join-btn"
+                    onClick={() => {
+                      const name = inviteName.trim() || profile.name || 'Friend';
+                      startSaantvanaCall(
+                        {
+                          name,
+                          initials: name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'C',
+                          color: profile.color || 'lilac'
+                        },
+                        inviteRoom,
+                        name
+                      );
+                    }}
+                  >
+                    <span>Join call</span>
+                    <ArrowRight size={16}/>
+                  </button>
+                </div>
+              </div>
+            </section>
           )}
 
           {page === 'Home' && (
