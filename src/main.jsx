@@ -118,6 +118,44 @@ function uid() {
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
 }
 
+// High-resilience STUN & TURN configurations for symmetric NAT & mobile carrier traversal
+const defaultIceServers = [
+  {
+    urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun3.l.google.com:19302',
+      'stun:stun4.l.google.com:19302'
+    ]
+  },
+  { urls: ['stun:stun.cloudflare.com:3478'] },
+  { urls: ['stun:global.stun.twilio.com:3478'] },
+  { urls: ['stun:stun.services.mozilla.com:3478'] },
+  // OpenRelay community TURN relay over standard web ports 80/443 (TCP/UDP)
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
+function resolveIceServers(profile) {
+  const list = [...defaultIceServers];
+  if (profile?.turnServer && profile.turnServer.trim()) {
+    list.unshift({
+      urls: profile.turnServer.trim(),
+      username: profile.turnUsername?.trim() || undefined,
+      credential: profile.turnCredential?.trim() || undefined
+    });
+  }
+  return list;
+}
+
 const defaultContacts = [];
 
 const connectionPrompts = [
@@ -1851,9 +1889,13 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
           if (message.type === 'offer') {
             sendCall({ type: CALL_EVENTS.OFFER_RECEIVED });
             const pc = makePeerConnection();
-            await pc.setRemoteDescription(message.description);
+            const desc = typeof RTCSessionDescription !== 'undefined' ? new RTCSessionDescription(message.description) : message.description;
+            await pc.setRemoteDescription(desc);
             for (const candidate of pendingIce.splice(0)) {
-              await pc.addIceCandidate(candidate).catch(() => {});
+              try {
+                const ice = typeof RTCIceCandidate !== 'undefined' ? new RTCIceCandidate(candidate) : candidate;
+                await pc.addIceCandidate(ice);
+              } catch {}
             }
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -1863,9 +1905,13 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
           if (message.type === 'answer' && pcRef.current) {
             sendCall({ type: CALL_EVENTS.ANSWER_RECEIVED });
-            await pcRef.current.setRemoteDescription(message.description);
+            const desc = typeof RTCSessionDescription !== 'undefined' ? new RTCSessionDescription(message.description) : message.description;
+            await pcRef.current.setRemoteDescription(desc);
             for (const candidate of pendingIce.splice(0)) {
-              await pcRef.current.addIceCandidate(candidate).catch(() => {});
+              try {
+                const ice = typeof RTCIceCandidate !== 'undefined' ? new RTCIceCandidate(candidate) : candidate;
+                await pcRef.current.addIceCandidate(ice);
+              } catch {}
             }
             return;
           }
@@ -1873,7 +1919,8 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
           if (message.type === 'ice' && message.candidate) {
             if (pcRef.current && pcRef.current.remoteDescription) {
               try {
-                await pcRef.current.addIceCandidate(message.candidate);
+                const ice = typeof RTCIceCandidate !== 'undefined' ? new RTCIceCandidate(message.candidate) : message.candidate;
+                await pcRef.current.addIceCandidate(ice);
               } catch {}
             } else {
               pendingIce.push(message.candidate);
@@ -1914,7 +1961,11 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
 
     const makePeerConnection = () => {
       if (pcRef.current) return pcRef.current;
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      const iceServers = resolveIceServers(profile);
+      const pc = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10
+      });
       pcRef.current = pc;
 
       streamRef.current?.getTracks().forEach((track) => pc.addTrack(track, streamRef.current));
@@ -1935,8 +1986,23 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
         } else if (pc.connectionState === 'failed') {
           sendCall({
             type: CALL_EVENTS.CONNECTION_FAILED,
-            message: 'Could not connect. This network may need a TURN relay.'
+            message: 'Direct connection blocked by carrier network. This network requires a TURN relay.'
           });
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          sendCall({ type: CALL_EVENTS.CONNECTION_CONNECTED });
+        } else if (pc.iceConnectionState === 'failed') {
+          if (pc.restartIce) {
+            pc.restartIce();
+          } else {
+            sendCall({
+              type: CALL_EVENTS.CONNECTION_FAILED,
+              message: 'Direct connection blocked by carrier network. This network requires a TURN relay.'
+            });
+          }
         }
       };
 
@@ -2128,10 +2194,16 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
               <div className="waiting-state">
                 {callCtx.error ? (
                   <div className="signaling-fallback-box">
-                    <span className="fallback-badge">STATIC HOSTING NOTICE</span>
-                    <b style={{ fontSize: '16px', display: 'block', marginTop: 4 }}>Signaling Service Unreachable</b>
+                    <span className="fallback-badge">
+                      {callCtx.error?.toLowerCase().includes('turn') || callCtx.error?.toLowerCase().includes('carrier') ? 'CARRIER NETWORK NOTICE' : 'CONNECTION NOTICE'}
+                    </span>
+                    <b style={{ fontSize: '16px', display: 'block', marginTop: 4 }}>
+                      {callCtx.error?.toLowerCase().includes('turn') || callCtx.error?.toLowerCase().includes('carrier') ? 'Direct Peer-to-Peer Blocked' : 'Signaling Service Notice'}
+                    </b>
                     <p style={{ maxWidth: 360, fontSize: 13, color: '#e0def4', lineHeight: 1.5, margin: '8px auto 16px' }}>
-                      Static hosting serves files without a background WebSocket server. Connect directly with Google Meet or connect through Render.
+                      {callCtx.error?.toLowerCase().includes('turn') || callCtx.error?.toLowerCase().includes('carrier')
+                        ? 'Your mobile carrier (5G/LTE) or firewall uses Symmetric NAT that blocks direct UDP streams. Switch to Google Meet for an instant call, or configure a custom TURN relay in Settings.'
+                        : (callCtx.error || 'Could not establish direct WebRTC connection. Connect directly with Google Meet or verify your network.')}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                       {onSwitchToGoogleMeet && (
@@ -2141,7 +2213,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
                           style={{ background: '#137333', borderColor: '#137333', gap: 8, padding: '10px 18px', width: '100%', justifyContent: 'center' }}
                           onClick={onSwitchToGoogleMeet}
                         >
-                          <GoogleMeetLogo size={18}/> Connect via Google Meet (Instant)
+                          <GoogleMeetLogo size={18}/> Switch to Google Meet (Instant)
                         </button>
                       )}
                       {onOpenSettings && (
@@ -2151,7 +2223,7 @@ function CallModal({ person, profile, onClose, onSwitchToGoogleMeet, onOpenSetti
                           style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', fontSize: 12, padding: '8px 14px', width: '100%', justifyContent: 'center' }}
                           onClick={onOpenSettings}
                         >
-                          <Settings size={14}/> Configure Signaling Server URL
+                          <Settings size={14}/> Settings & TURN Relay
                         </button>
                       )}
                     </div>
@@ -2543,6 +2615,9 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
   const [defaultMic, setDefaultMic] = useState(profile.defaultMic ?? true);
   const [defaultCam, setDefaultCam] = useState(profile.defaultCam ?? true);
   const [signalUrl, setSignalUrl] = useState(profile.signalUrl || '');
+  const [turnServer, setTurnServer] = useState(profile.turnServer || '');
+  const [turnUsername, setTurnUsername] = useState(profile.turnUsername || '');
+  const [turnCredential, setTurnCredential] = useState(profile.turnCredential || '');
 
   const colors = [
     { id: 'lilac', hex: '#e9e3f6', label: 'Lilac' },
@@ -2561,7 +2636,10 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
       theme,
       defaultMic,
       defaultCam,
-      signalUrl: signalUrl.trim()
+      signalUrl: signalUrl.trim(),
+      turnServer: turnServer.trim(),
+      turnUsername: turnUsername.trim(),
+      turnCredential: turnCredential.trim()
     });
   };
 
@@ -2668,6 +2746,34 @@ function SettingsModal({ profile, onSave, onClose, connectionCount, reflectionCo
             />
             <small>
               Static hosts (GitHub Pages) require a WebSocket backend for native calls. Leave empty to use Google Meet or local default.
+            </small>
+          </div>
+
+          <div className="settings-item">
+            <label htmlFor="prof-turn">Custom TURN Relay Server (Optional)</label>
+            <input
+              id="prof-turn"
+              placeholder="e.g. turn:openrelay.metered.ca:443 or turn:your-server.com:443"
+              value={turnServer}
+              onChange={(e) => setTurnServer(e.target.value)}
+            />
+            {turnServer && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+                <input
+                  placeholder="Username (optional)"
+                  value={turnUsername}
+                  onChange={(e) => setTurnUsername(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Password / Credential"
+                  value={turnCredential}
+                  onChange={(e) => setTurnCredential(e.target.value)}
+                />
+              </div>
+            )}
+            <small>
+              Bypasses symmetric NAT on strict 4G/5G mobile carriers. Built-in OpenRelay and Google STUN are enabled by default.
             </small>
           </div>
 
