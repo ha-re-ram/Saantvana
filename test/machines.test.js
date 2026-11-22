@@ -35,6 +35,12 @@ import {
   MENU_STATES,
   MENU_EVENTS
 } from '../src/machines/menuMachine.js';
+import {
+  companionMachine,
+  COMPANION_STATES,
+  COMPANION_EVENTS,
+  getCompanionView
+} from '../src/machines/companionMachine.js';
 
 test('createMachine: basic transitions and guards', () => {
   const toggle = createMachine({
@@ -437,4 +443,53 @@ test('menuMachine: mutually exclusive popovers and dismissal', () => {
   // Close when already closed is a safe no-op
   s = menuMachine.transition(s.value, s.context, { type: MENU_EVENTS.CLOSE });
   assert.equal(s.value, MENU_STATES.CLOSED);
+});
+
+test('companionMachine: Google Meet session lifecycle and post-call decompression', () => {
+  let s = companionMachine.getInitialState();
+  assert.equal(s.value, COMPANION_STATES.IDLE);
+  assert.equal(s.context.person, null);
+  assert.equal(s.context.elapsed, 0);
+
+  const initialView = getCompanionView(s);
+  assert.equal(initialView.isIdle, true);
+  assert.equal(initialView.isActive, false);
+  assert.equal(initialView.isPostCall, false);
+
+  // Start call
+  const targetPerson = { id: 'p-1', name: 'Maya Chen' };
+  s = companionMachine.transition(s.value, s.context, {
+    type: COMPANION_EVENTS.START,
+    person: targetPerson,
+    meetUrl: 'https://meet.google.com/test-room'
+  });
+  assert.equal(s.value, COMPANION_STATES.ACTIVE);
+  assert.equal(s.context.person.name, 'Maya Chen');
+  assert.equal(s.context.elapsed, 0);
+
+  let view = getCompanionView(s);
+  assert.equal(view.isActive, true);
+  assert.equal(view.personName, 'Maya Chen');
+  assert.equal(view.formattedElapsed, '00:00');
+
+  // Tick elapsed time
+  s = companionMachine.transition(s.value, s.context, { type: COMPANION_EVENTS.TICK });
+  s = companionMachine.transition(s.value, s.context, { type: COMPANION_EVENTS.TICK });
+  assert.equal(s.context.elapsed, 2);
+  view = getCompanionView(s);
+  assert.equal(view.formattedElapsed, '00:02');
+
+  // Finish call -> transitions to POST_CALL decompression state
+  s = companionMachine.transition(s.value, s.context, { type: COMPANION_EVENTS.FINISH });
+  assert.equal(s.value, COMPANION_STATES.POST_CALL);
+  assert.ok(s.context.endedAt);
+  view = getCompanionView(s);
+  assert.equal(view.isPostCall, true);
+  assert.equal(view.isActive, false);
+
+  // Dismiss post-call returns to IDLE
+  s = companionMachine.transition(s.value, s.context, { type: COMPANION_EVENTS.DISMISS });
+  assert.equal(s.value, COMPANION_STATES.IDLE);
+  assert.equal(s.context.person, null);
+  assert.equal(s.context.elapsed, 0);
 });

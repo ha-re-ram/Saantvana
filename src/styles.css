@@ -2338,6 +2338,42 @@ input:focus-visible {
   background: #be123c !important;
 }
 
+/* Post-Call Somatic Decompression Card */
+.post-call-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--purple-light);
+  border: 1.5px solid var(--purple-subtle);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+.post-call-card b {
+  font-size: 14px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.post-call-card p {
+  font-size: 13px;
+  color: var(--ink-secondary);
+  margin: 3px 0 0;
+  line-height: 1.4;
+}
+
+body.dark-mode .post-call-card {
+  background: #25203d;
+  border-color: #3b325c;
+}
+body.dark-mode .post-call-card b {
+  color: #ffffff;
+}
+body.dark-mode .post-call-card p {
+  color: #d1cbe5;
+}
+
 /* Interactive Popovers & Drawers */
 .popover-menu {
   position: absolute;
@@ -3573,7 +3609,8 @@ input:focus-visible {
   }
 
   /* Meet companion card mobile responsiveness */
-  .meet-companion-card {
+  .meet-companion-card,
+  .post-call-card {
     flex-wrap: wrap;
     padding: 14px 16px;
     gap: 12px;

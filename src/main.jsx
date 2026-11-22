@@ -70,6 +70,12 @@ import {
   MENU_STATES,
   MENU_EVENTS
 } from './machines/menuMachine.js';
+import {
+  companionMachine,
+  COMPANION_STATES,
+  COMPANION_EVENTS,
+  getCompanionView
+} from './machines/companionMachine.js';
 
 // Official Google Meet Logo
 function GoogleMeetLogo({ size = 18 }) {
@@ -157,26 +163,17 @@ function App() {
 
   const [activePromptText, setActivePromptText] = useState('');
 
-  // Google Meet Companion Session & Timer
-  const [activeMeetSession, setActiveMeetSession] = useState(null);
-  const [meetElapsed, setMeetElapsed] = useState(0);
+  // Google Meet Companion Session State Machine (UX/DX/AX: Deterministic session lifecycle & decompression)
+  const [companionState, sendCompanion] = useMachine(companionMachine);
+  const companionView = getCompanionView(companionState);
 
   useEffect(() => {
-    if (!activeMeetSession) {
-      setMeetElapsed(0);
-      return;
-    }
+    if (!companionView.isActive) return;
     const interval = window.setInterval(() => {
-      setMeetElapsed((s) => s + 1);
+      sendCompanion({ type: COMPANION_EVENTS.TICK });
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [activeMeetSession]);
-
-  const formatElapsed = (secs) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+  }, [companionView.isActive, sendCompanion]);
 
   // Persistent User Profile
   const [profile, setProfile] = useState(() => {
@@ -304,11 +301,11 @@ function App() {
       say(`Google Meet opened in a new tab!`);
     }
 
-    // Set companion session in Saantvana
-    setActiveMeetSession({
+    // Set companion session in Saantvana (deterministic FSM)
+    sendCompanion({
+      type: COMPANION_EVENTS.START,
       person: person || { name: 'A connection' },
-      meetUrl,
-      startedAt: new Date()
+      meetUrl
     });
   };
 
@@ -526,14 +523,14 @@ function App() {
 
         <div className="page-wrap">
           {/* Active Google Meet Companion Banner */}
-          {activeMeetSession && (
-            <div className="meet-companion-card">
+          {companionView.isActive && (
+            <div className="meet-companion-card" role="region" aria-label="Active Google Meet session">
               <div className="companion-left">
                 <GoogleMeetLogo size={28}/>
                 <div>
                   <div className="companion-title-row">
-                    <b>Google Meet in progress with {activeMeetSession.person.name}</b>
-                    <span className="companion-timer"><span className="live-dot"/> {formatElapsed(meetElapsed)}</span>
+                    <b>Google Meet in progress with {companionView.personName}</b>
+                    <span className="companion-timer"><span className="live-dot"/> {companionView.formattedElapsed}</span>
                   </div>
                   <p>Connected via Google Meet in your open tab. Saantvana stays right here as your quiet companion.</p>
                 </div>
@@ -541,7 +538,7 @@ function App() {
               <div className="companion-actions">
                 <button
                   className="outline-button small-btn"
-                  onClick={() => window.open(activeMeetSession.meetUrl, '_blank')}
+                  onClick={() => window.open(companionView.meetUrl, '_blank')}
                   title="Re-open or switch to your Meet tab"
                 >
                   <ExternalLink size={14}/> Open Meet tab
@@ -549,17 +546,17 @@ function App() {
                 <button
                   className="outline-button small-btn"
                   onClick={async () => {
-                    const targetName = activeMeetSession.person?.name && activeMeetSession.person.name !== 'A connection'
-                      ? activeMeetSession.person.name
+                    const targetName = companionView.personName && companionView.personName !== 'A connection'
+                      ? companionView.personName
                       : '';
                     const inviteMsg = targetName
-                      ? `Hi ${targetName}, let's meet on Google Meet: ${activeMeetSession.meetUrl}`
-                      : `Join my Google Meet call: ${activeMeetSession.meetUrl}`;
+                      ? `Hi ${targetName}, let's meet on Google Meet: ${companionView.meetUrl}`
+                      : `Join my Google Meet call: ${companionView.meetUrl}`;
                     try {
                       await navigator.clipboard.writeText(inviteMsg);
                       say('Google Meet invitation copied to clipboard.');
                     } catch {
-                      say(`Link: ${activeMeetSession.meetUrl}`);
+                      say(`Link: ${companionView.meetUrl}`);
                     }
                   }}
                   title="Copy Google Meet invite message to clipboard"
@@ -583,12 +580,54 @@ function App() {
                 <button
                   className="primary-button small-btn end-session-btn"
                   onClick={() => {
-                    setActiveMeetSession(null);
+                    sendCompanion({ type: COMPANION_EVENTS.FINISH });
                     say('Call ended. Take a gentle breath before your next activity.');
                   }}
                   title="Finish and dismiss Meet session"
                 >
                   Finish call
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Post-Call Somatic Decompression Card */}
+          {companionView.isPostCall && (
+            <div className="post-call-card" role="region" aria-label="Post-call decompression">
+              <div className="companion-left">
+                <Sparkles size={26} style={{ color: 'var(--purple)', flexShrink: 0 }}/>
+                <div>
+                  <b>Call with {companionView.personName} concluded ({companionView.formattedElapsed})</b>
+                  <p>Take a quiet breath or jot down a note before moving into your next moment.</p>
+                </div>
+              </div>
+              <div className="companion-actions">
+                <button
+                  className="primary-button small-btn"
+                  onClick={() => {
+                    sendCompanion({ type: COMPANION_EVENTS.DISMISS });
+                    go('Wellbeing', 'pause');
+                  }}
+                  title="Take a 60-second breathing pause"
+                >
+                  <Activity size={14}/> 60-second pause
+                </button>
+                <button
+                  className="outline-button small-btn"
+                  onClick={() => {
+                    sendCompanion({ type: COMPANION_EVENTS.DISMISS });
+                    go('Wellbeing');
+                  }}
+                  title="Record a reflection note"
+                >
+                  <Heart size={14}/> Reflection note
+                </button>
+                <button
+                  className="text-button small-btn"
+                  onClick={() => sendCompanion({ type: COMPANION_EVENTS.DISMISS })}
+                  title="Dismiss post-call decompression"
+                >
+                  Dismiss
                 </button>
               </div>
             </div>
